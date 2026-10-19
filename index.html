@@ -3,6 +3,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Meu Mercado</title>
 <meta name="theme-color" content="#0f9d6b"><meta name="apple-mobile-web-app-capable" content="yes">
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
 <style>
@@ -61,12 +62,13 @@ label{display:block;font-size:.72rem;font-weight:600;color:var(--mu);margin:10px
 <symbol id="i-up" viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></symbol>
 <symbol id="i-down" viewBox="0 0 24 24"><path d="M7 7l10 10M17 8v9H8"/></symbol>
 <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+<symbol id="i-qr" viewBox="0 0 24 24"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h3v3h-3zM20 14v3M14 20h3M20 20v1"/></symbol>
 <symbol id="i-store" viewBox="0 0 24 24"><path d="M3 9l2-5h14l2 5M4 9v11h16V9M9 20v-6h6v6"/></symbol>
 </defs></svg>
 <main>
 <div class="top"><div class="logo"><svg class="i"><use href="#i-cart"/></svg></div><div><h1>Meu Mercado</h1><div class="mu" id="mode">Carregando…</div></div><button onclick="sb&&sb.auth.signOut().then(()=>location.reload())" style="margin-left:auto;padding:6px 12px;font-size:.75rem">Sair</button></div>
 <div id="app"></div></main>
-<nav><button data-v="home"><svg class="i"><use href="#i-home"/></svg>Resumo</button><button data-v="list"><svg class="i"><use href="#i-list"/></svg>Compras</button><button data-v="form"><svg class="i"><use href="#i-plus"/></svg>Nova</button><button data-v="prod"><svg class="i"><use href="#i-tag"/></svg>Produtos</button></nav>
+<nav><button data-v="home"><svg class="i"><use href="#i-home"/></svg>Resumo</button><button data-v="list"><svg class="i"><use href="#i-list"/></svg>Compras</button><button data-v="form"><svg class="i"><use href="#i-plus"/></svg>Nova</button><button data-v="prod"><svg class="i"><use href="#i-tag"/></svg>Produtos</button><button data-v="qr"><svg class="i"><use href="#i-qr"/></svg>Ler QR</button></nav>
 <script>
 const CATS=["Alimentação","Hortifruti","Carnes e congelados","Higiene pessoal","Limpeza","Bebidas","Doces, besteiras e lanches","Outros"];
 const COL=["#0f9d6b","#16a34a","#e5484d","#7c5cff","#0ea5e9","#f59e0b","#ec4899","#64748b"];
@@ -147,10 +149,10 @@ const mshort=m=>{const[y,mo]=m.split("-");return new Date(y,mo-1,1).toLocaleDate
 
 function render(){
   document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.v===view));
-  $("#app").innerHTML=view==="home"?home():view==="list"?list():view==="prod"?prods():form();
+  $("#app").innerHTML=view==="home"?home():view==="list"?list():view==="prod"?prods():view==="qr"?qrView():form();
   if(view==="form")bindForm();
 }
-function go(v,id){view=v;ed=id||null;draft=null;msg="";render();scrollTo(0,0)}
+function go(v,id){stopQR();QRLINK="";view=v;ed=id||null;draft=null;msg="";render();scrollTo(0,0)}
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>go(b.dataset.v));
 const empty=(t,b)=>`<div class="card empty">${ic("cart")}<div>${t}</div>${b||""}</div>`;
 
@@ -243,7 +245,7 @@ function form(){
   <div class="card"><div class="row"><div><label>Data</label><input type="date" id="f-date" value="${esc(d.date)}"></div>
   <div><label>Supermercado</label><input id="f-store" list="stores" value="${esc(d.store)}"><datalist id="stores">${stores.map(s=>`<option value="${esc(s)}">`).join("")}</datalist></div></div>
   <label>Chave de acesso da nota, 44 dígitos (opcional; evita duplicidade)</label><input id="f-key" inputmode="numeric" maxlength="44" value="${esc(d.key||"")}"></div>
-  <div id="items">${(d.items&&d.items.length?d.items:[null]).map(itemRow).join("")}</div>
+  ${QRLINK?`<a class="btn" href="${esc(QRLINK)}" target="_blank" rel="noopener" style="display:block;text-align:center;margin:8px 0;color:var(--ac);font-weight:600">Abrir cupom no site da Fazenda</a>`:""}<div id="items">${(d.items&&d.items.length?d.items:[null]).map(itemRow).join("")}</div>
   <button type="button" onclick="addItem()">${ic("plus")}Adicionar item</button>
   <div class="card hero" style="margin-top:14px"><div class="mu">Total da compra</div><div class="big" id="total">R$ 0,00</div></div>
   <div class="err" id="err">${esc(msg)}</div>
@@ -276,6 +278,34 @@ async function submitForm(){
 async function del(){
   if(!confirm("Excluir esta compra e todos os seus itens?"))return;
   try{await remove(ed);go("list")}catch(e){msg="Não foi possível excluir.";render()}
+}
+let stream=null,scanning=false,QRLINK="";
+function qrView(){return `<h2>Ler QR Code do cupom</h2><div class="card"><video id="qv" playsinline muted style="width:100%;border-radius:14px;background:#000;aspect-ratio:1/1;object-fit:cover"></video><div class="err" id="qe"></div><button class="pri cta" onclick="startQR()">${ic("qr")}Abrir câmera</button><div class="mu">Aponte para o QR Code do cupom. Se a câmera não abrir, cole o link abaixo.</div><label>Link do QR ou chave de acesso (44 dígitos)</label><input id="qlink" placeholder="Cole aqui"><button class="cta" onclick="useQR($('#qlink').value)">Usar este código</button></div>`}
+async function startQR(){
+  const qe=$("#qe");qe.textContent="";
+  try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}}})}catch(e){qe.textContent="Não foi possível abrir a câmera. Permita o acesso nas configurações do navegador ou cole o link abaixo.";return}
+  const v=$("#qv");v.srcObject=stream;await v.play();scanning=true;
+  const c=document.createElement("canvas"),x=c.getContext("2d",{willReadFrequently:true});
+  const tick=()=>{if(!scanning)return;
+    if(v.videoWidth){c.width=v.videoWidth;c.height=v.videoHeight;x.drawImage(v,0,0);
+      const im=x.getImageData(0,0,c.width,c.height),r=window.jsQR&&jsQR(im.data,c.width,c.height);
+      if(r&&r.data){stopQR();useQR(r.data);return}}
+    requestAnimationFrame(tick)};
+  tick();
+}
+function stopQR(){scanning=false;if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}}
+function useQR(t){
+  t=String(t||"").trim();
+  const m=t.match(/\d{44}/)||t.replace(/\D/g,"").match(/\d{44}/);
+  const qe=$("#qe");
+  if(!m){if(qe)qe.textContent="Não encontrei a chave de acesso nesse código. Tente de novo ou cadastre manualmente.";else{view="qr";render()}return}
+  const key=m[0];
+  if(P.some(x=>x.key===key)){view="qr";render();$("#qe").textContent="Esta nota já foi cadastrada.";return}
+  const ym="20"+key.slice(2,4)+"-"+key.slice(4,6),today=new Date().toISOString().slice(0,10);
+  QRLINK=/^https?:\/\//i.test(t)?t:"";
+  ed=null;draft={date:today.slice(0,7)===ym?today:ym+"-01",store:"",key,items:[null]};
+  msg="Nota lida. Confira a data, informe o supermercado e lance os itens do cupom.";
+  view="form";render();scrollTo(0,0);
 }
 init();
 </script></body></html>
