@@ -172,7 +172,7 @@ function home(){
   const vals=ms.map(x=>inM(x).reduce((s,p)=>s+tot(p),0)),withData=vals.filter(v=>v>0);
   const avg=withData.length?withData.reduce((s,v)=>s+v,0)/withData.length:0;
   const bc={},bs={},bp={},bw={};
-  a.forEach(p=>{bw[who(p)||"Sem registro"]=(bw[who(p)||"Sem registro"]||0)+tot(p);bs[p.store||"Sem nome"]=(bs[p.store||"Sem nome"]||0)+tot(p);(p.items||[]).forEach(i=>{bc[i.cat||"Outros"]=(bc[i.cat||"Outros"]||0)+net(i);bp[i.nome]=(bp[i.nome]||0)+net(i)})});
+  a.forEach(p=>{bw[who(p)||"Sem registro"]=(bw[who(p)||"Sem registro"]||0)+tot(p);bs[p.store||"Sem nome"]=(bs[p.store||"Sem nome"]||0)+tot(p);(p.items||[]).forEach(i=>{bc[i.cat||"Outros"]=(bc[i.cat||"Outros"]||0)+net(i);{const kn=i.nome+(i.marca?" · "+i.marca:"");bp[kn]=(bp[kn]||0)+net(i)}})});
   const bars=(o,colored)=>{const e=Object.entries(o).sort((x,y)=>y[1]-x[1]);const mx=e[0]?e[0][1]:1;
     return e.length?e.map(([k,v])=>{const c=colored?COL[Math.max(0,CATS.indexOf(k))]:"var(--ac)";return `<div class="li"><span>${esc(k)}</span><b>${R(v)}</b></div><div class="bar"><i style="width:${v/mx*100}%;background:${c}"></i></div>`}).join(""):'<div class="mu">Nada lançado neste mês.</div>'};
   const top=Object.fromEntries(Object.entries(bp).sort((x,y)=>y[1]-x[1]).slice(0,5));
@@ -187,7 +187,7 @@ function home(){
 }
 function list(){
   const s=[...P].sort((x,y)=>(y.date||"").localeCompare(x.date||""));
-  return `<h2>Histórico de compras</h2>`+(s.length?s.map(p=>`<div class="card clk hd" onclick="go('form','${esc(p.id)}')"><div class="ic">${ic("store")}</div><div><b>${esc(p.store||"Sem nome")}</b><div class="mu">${D(p.date)} · ${(p.items||[]).length} iten(s)${who(p)?" · "+who(p):""}</div></div><b>${R(tot(p))}</b></div>`).join(""):empty("Nenhuma compra cadastrada."));
+  return `<h2>Histórico de compras</h2>`+(s.length?s.map(p=>`<div class="card clk hd" onclick="go('form','${esc(p.id)}')"><div class="ic">${ic("store")}</div><div><b>${esc(p.store||"Sem nome")}</b><div class="mu">${D(p.date)} · ${(p.items||[]).length} iten(s)${who(p)?" · "+who(p):""}</div><div class="mu" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc((p.items||[]).slice(0,4).map(i=>i.nome).join(", "))}</div></div><b>${R(tot(p))}</b></div>`).join(""):empty("Nenhuma compra cadastrada."));
 }
 function unitPrice(i){
   const e=i.emb;if(!e)return null;
@@ -310,21 +310,23 @@ function useQR(t){
 }
 let PASTE="";
 const nbr=v=>{v=String(v).trim();return parseFloat(v.includes(",")?v.replace(/\./g,"").replace(",","."):v)||0};
+const ABR={ARR:"Arroz",BEB:"Bebida",FRAL:"Fralda",SALG:"Salgadinho",BISC:"Biscoito",BOL:"Bolinho",MAC:"Macarrão",AMEND:"Amendoim",ALF:"Alfajor",FEIJ:"Feijão",PARM:"Parmesão",RAL:"Ralado",LTE:"Leite",INT:"Integral",COND:"Condicionador",SBT:"Sabonete",CD:"Creme dental",COLG:"Colgate",AZE:"Azeitona",PIZ:"Pizza",COS:"Costela",BOV:"Bovina",FG:"Frango","S/O":"sem osso",AM:"Amaciante",SANIT:"Sanitária",REFRES:"Refrescante",HIDRAT:"Hidratante",CAL:"Calabresa",CHO:"Chocolate",MOR:"Morango",ABAC:"Abacaxi",DES:"Desossada",FAT:"Fatiada",GAL:"Galinha",CAR:"Carioca",ORIG:"Original",BAN:"Banana",DESOD:"Desodorante",SHAMP:"Shampoo"};
+function expandNome(s){return s.split(" ").filter(Boolean).map(w=>{const k=w.toUpperCase();return ABR[k]||(w.length>2?w[0].toUpperCase()+w.slice(1).toLowerCase():w.toLowerCase())}).join(" ")}
 function guessCat(n){n=n.toLowerCase();
-  const m=[["Hortifruti",/banana|ma[çc][ãa]|tomate|cebola|batata|alface|cenoura|laranja|lim[ãa]o|abacate|mam[ãa]o|verdura|fruta/],
-  ["Carnes e congelados",/carne|frango|bacon|costel|lingui|peito|pizza|congel|hamb|peixe|fil[ée]|bovin|su[ií]n|salsicha/],
-  ["Higiene pessoal",/sabonete|shampoo|xampu|condicion|creme dental|colgate|desodor|fralda|absorv|papel hig|escova|oral|sbt|gel d/],
-  ["Limpeza",/detergente|sab[ãa]o|amacia|sanit|desinf|esponja|limpa|multiuso|alvejante|brilh|lava/],
-  ["Bebidas",/refri|suco|[áa]gua|cerveja|vinho|guaran|coca|energ|vig|bebida/],
-  ["Doces, besteiras e lanches",/biscoit|bolach|choc|bala|salgad|snack|doce|sorvete|amendoim|bomb|wafer|pipoca|nutry|alfajor/],
-  ["Alimentação",/arroz|feij|macarr|farinha|a[çc][úu]car|[óo]leo|leite|caf[ée]|molho|p[ãa]o|ovo|queijo|presunt|farofa|aveia|cereal|sucrilhos|parmes|miojo|nissin/]];
+  const m=[["Hortifruti",/banana|ma[çc][ãa]|tomate|cebola|batata|alface|cenoura|laranja|lim[ãa]o|abacate|mam[ãa]o|verdura|fruta|uva|morango|pera|melancia|abobrinha|br[óo]colis|couve/],
+  ["Carnes e congelados",/carne|frango|bacon|costel|lingui|peito|pizza|congel|hamb|peixe|fil[ée]|bovin|su[ií]n|salsicha|nuggets|lasanha|sobrecoxa|coxa|ac[ée]m|picanha|patinho|alcatra|mortadela|presunto/],
+  ["Higiene pessoal",/sabonete|shampoo|xampu|condicion|creme dental|gel dental|colgate|desodor|fralda|absorv|papel hig|escova|oral|pompom|lux|seda|toalha umed|len[çc]o umed|hastes|cotonete|barbear|protetor|hidratante|talco|sbt/],
+  ["Limpeza",/detergente|sab[ãa]o|amacia|sanit|desinf|esponja|limpa|multiuso|alvejante|brilh|lava|vassoura|rodo|pano|saco de lixo|inseticida|cloro|[áa]lcool/],
+  ["Bebidas",/refri|suco|[áa]gua|cerveja|vinho|guaran|coca|energ|vigor|maguary|bebida|ch[áa] |t[ée] |isot|gatorade|whisky|vodka|fanta|sprite|pepsi/],
+  ["Doces, besteiras e lanches",/biscoit|bolach|choc|bala|salgad|snack|doce|sorvete|amendoim|bomb|wafer|pipoca|nutry|alfajor|cheetos|fandangos|ruffles|bolinho|gelatina|pa[çc]oca|sucrilhos?|goma|pirulito|torrada|barra de|trident|chiclete/],
+  ["Alimentação",/arroz|feij|macarr|farinha|a[çc][úu]car|[óo]leo|leite|caf[ée]|molho|p[ãa]o|ovo|queijo|parmes|farofa|aveia|cereal|miojo|nissin|azeit|sal |tempero|vinagre|iogurte|petit|manteiga|margarina|maionese|ketchup|massa|wrap|fub[áa]|polvilho|extrato|milho|ervilha|atum|sardinha/]];
   for(const[c,r]of m)if(r.test(n))return c;return"Outros"}
 function parseCupom(t){
   t=String(t||"").replace(/\r/g,"");
   if(t.trim()[0]==="{")return parseJSONCupom(t.trim());
   const re=/([^\n(]+?)\s*\(\s*C[óo]digo:\s*(\d+)\s*\)[\s\S]*?Qtde\.?\s*:?\s*([\d.,]+)[\s\S]*?UN\s*:?\s*([A-Za-z]+)[\s\S]*?Vl\.?\s*Unit\.?\s*:?\s*(?:R\$)?\s*([\d.,]+)[\s\S]*?Vl\.?\s*Total\s*:?\s*(?:R\$)?\s*([\d.,]+)/gi;
   const it=[];let m;
-  while((m=re.exec(t))){const un=m[4].toLowerCase(),nome=m[1].replace(/\s+/g," ").trim();
+  while((m=re.exec(t))){const un=m[4].toLowerCase(),nome=expandNome(m[1].replace(/\s+/g," ").trim());
     it.push({nome,marca:"",emb:0,un:["kg","g","l","ml"].includes(un)?(un==="l"?"L":un):"un",qtd:nbr(m[3]),preco:nbr(m[5]),desc:0,cat:guessCat(nome),_t:nbr(m[6])})}
   if(!it.length)return{error:"Não encontrei itens nesse texto. Copie a página do cupom inteira, aberta no navegador (não da foto), e tente de novo."};
   const g=r=>{const x=t.match(r);return x?nbr(x[1]):null};
@@ -360,7 +362,8 @@ function parseJSONCupom(s){
     if(!nome||!(qtd>0)||!(preco>=0)||!(tot>=0)||isNaN(desc))return{error:`Item ${n} (${nome||"sem nome"}): faltam nome, quantidade, preço ou total, ou algum número está ilegível. Nada foi importado.`};
     if(Math.abs(qtd*preco-tot)>0.02)return{error:`Item ${n} (${nome}): ${qtd} × ${R(preco)} dá ${R(qtd*preco)}, mas o total informado é ${R(tot)}. Algum número foi lido errado. Nada foi importado.`};
     const un=String(x.un||"un").toLowerCase();
-    it.push({nome,marca:"",emb:0,un:["kg","g","l","ml"].includes(un)?(un==="l"?"L":un):"un",qtd,preco,desc,cat:CATS.includes(x.categoria)?x.categoria:guessCat(nome),_t:tot});
+    const ue=String(x.un_emb||"").toLowerCase(),emb=Number(x.emb)||0,mu=v=>v==="l"?"L":v;
+    it.push({nome,marca:String(x.marca||"").trim(),emb:ue&&emb?emb:0,un:ue&&emb&&["kg","g","l","ml"].includes(ue)?mu(ue):(["kg","g","l","ml"].includes(un)?mu(un):"un"),qtd,preco,desc,cat:CATS.includes(x.categoria)?x.categoria:guessCat(nome),_t:tot});
   }
   const total=Number(o.valor_total),soma=Math.round(it.reduce((a,i)=>a+i._t,0)*100)/100;
   if(!(total>0))return{error:"Falta o valor total do cupom (\"valor_total\") para conferir os itens."};
