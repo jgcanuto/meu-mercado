@@ -63,6 +63,7 @@ label{display:block;font-size:.72rem;font-weight:600;color:var(--mu);margin:10px
 <symbol id="i-down" viewBox="0 0 24 24"><path d="M7 7l10 10M17 8v9H8"/></symbol>
 <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
 <symbol id="i-qr" viewBox="0 0 24 24"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h3v3h-3zM20 14v3M14 20h3M20 20v1"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21h4"/></symbol>
 <symbol id="i-store" viewBox="0 0 24 24"><path d="M3 9l2-5h14l2 5M4 9v11h16V9M9 20v-6h6v6"/></symbol>
 </defs></svg>
 <main>
@@ -162,6 +163,26 @@ function chart(months,vals){
     const h=vals[i]/mx*H,x=gap+i*(bw+gap),last=i===months.length-1;
     return `<rect x="${x}" y="${H-h}" width="${bw}" height="${Math.max(h,2)}" rx="8" fill="${last?"var(--ac)":"var(--ac2)"}"/><text x="${x+bw/2}" y="${H+15}" text-anchor="middle" font-size="10" fill="var(--mu)">${mshort(m)}</text>`}).join("")+`</svg>`;
 }
+let IGN={};try{IGN=JSON.parse(localStorage.getItem("meumercado_ignorados")||"{}")}catch(e){}
+function ignorar(k){IGN[decodeURIComponent(k)]=1;try{localStorage.setItem("meumercado_ignorados",JSON.stringify(IGN))}catch(e){}render()}
+function esquecidos(){
+  const m={},hoje=new Date();hoje.setHours(0,0,0,0);
+  P.forEach(p=>(p.items||[]).forEach(i=>{const k=[i.nome,i.marca,i.emb,i.un].map(x=>String(x||"").toLowerCase().trim()).join("|");const o=m[k]=m[k]||{k,i,d:new Set()};o.i=i;if(p.date)o.d.add(p.date)}));
+  const out=[];
+  Object.values(m).forEach(o=>{
+    const ds=[...o.d].sort();if(ds.length<2)return;
+    const t=ds.map(x=>new Date(x+"T00:00:00").getTime());let s=0;
+    for(let j=1;j<t.length;j++)s+=(t[j]-t[j-1])/864e5;
+    const avg=s/(t.length-1),since=Math.round((hoje-t[t.length-1])/864e5),last=ds[ds.length-1];
+    if(avg<1||IGN[o.k+"|"+last])return;
+    if(since>=7&&since>avg*1.25)out.push({k:o.k,i:o.i,n:ds.length,avg:Math.round(avg),since,last,r:since/avg});
+  });
+  return out.sort((a,b)=>b.r-a.r);
+}
+function alerta(){
+  const L=esquecidos();if(!L.length)return"";
+  return `<div class="card" style="border-color:var(--rd)"><b style="display:flex;gap:8px;align-items:center;color:var(--rd)">${ic("bell")}Pode ter esquecido (${L.length})</b><div class="mu" style="margin:4px 0 6px">Itens que você costuma comprar e que estão atrasados.</div>${L.slice(0,8).map(o=>`<div class="tr fl"><span>${esc(o.i.nome)}${o.i.marca?" · "+esc(o.i.marca):""}<div class="mu">Comprado ${o.n}x, em média a cada ${o.avg} dias · última vez em ${D(o.last)} (há ${o.since} dias)</div></span><button style="padding:6px 10px;font-size:.75rem" onclick="ignorar('${encodeURIComponent(o.k+"|"+o.last)}')">Ignorar</button></div>`).join("")}${L.length>8?`<div class="mu" style="margin-top:6px">+${L.length-8} outros itens</div>`:""}</div>`;
+}
 function toggleCat(k){k=decodeURIComponent(k);openCat[k]=!openCat[k];render()}
 function catList(bc,ci){
   const e=Object.entries(bc).sort((x,y)=>y[1]-x[1]);
@@ -189,6 +210,7 @@ function home(){
   if(!P.length)return banner()+empty("Nenhuma compra ainda. Cadastre a primeira para ver seu painel.",`<button class="pri cta" onclick="go('form')">${ic("plus")}Cadastrar compra</button>`);
   return banner()+`<div class="card hero"><div class="mu">Gasto em ${mname(cur)}</div><div class="big">${R(ta)}</div><div>${cmp}</div><div class="mu" style="margin-top:8px">${a.length} compra(s) no mês · média mensal ${R(avg)}</div></div>
   <button class="pri cta" onclick="go('form')">${ic("plus")}Cadastrar compra</button>
+  ${alerta()}
   <h2>Últimos 6 meses</h2><div class="card">${chart(ms,vals)}</div>
   <h2>Por categoria</h2><div class="card">${catList(bc,ci)}</div>
   <h2>Pesam mais no orçamento</h2><div class="card">${bars(top)}</div>
