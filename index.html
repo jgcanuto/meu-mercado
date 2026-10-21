@@ -162,6 +162,16 @@ function chart(months,vals){
     const h=vals[i]/mx*H,x=gap+i*(bw+gap),last=i===months.length-1;
     return `<rect x="${x}" y="${H-h}" width="${bw}" height="${Math.max(h,2)}" rx="8" fill="${last?"var(--ac)":"var(--ac2)"}"/><text x="${x+bw/2}" y="${H+15}" text-anchor="middle" font-size="10" fill="var(--mu)">${mshort(m)}</text>`}).join("")+`</svg>`;
 }
+function toggleCat(k){k=decodeURIComponent(k);openCat[k]=!openCat[k];render()}
+function catList(bc,ci){
+  const e=Object.entries(bc).sort((x,y)=>y[1]-x[1]);
+  if(!e.length)return'<div class="mu">Nada lançado neste mês.</div>';
+  const mx=e[0][1]||1;
+  return e.map(([k,v])=>{
+    const op=openCat[k],c=COL[Math.max(0,CATS.indexOf(k))],its=(ci[k]||[]).slice().sort((a,b)=>net(b.i)-net(a.i)),n=its.length;
+    const rows=op?`<div style="margin:-6px 0 14px">${its.map(({i,p})=>`<div class="tr fl"><span>${esc(i.nome)}${i.marca?" · "+esc(i.marca):""}<div class="mu">${D(p.date)} · ${esc(p.store||"")} · ${String(i.qtd).replace(".",",")} × ${R(i.preco)}</div></span><b>${R(net(i))}</b></div>`).join("")}</div>`:"";
+    return `<div class="clk" onclick="toggleCat('${encodeURIComponent(k)}')"><div class="li"><span>${esc(k)} <span class="mu">· ${n} ${n===1?"item":"itens"}</span></span><b>${R(v)} ${op?"▾":"▸"}</b></div><div class="bar"><i style="width:${v/mx*100}%;background:${c}"></i></div></div>${rows}`}).join("");
+}
 function home(){
   const now=new Date(),cur=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0"),pm=prevMonth(cur);
   const inM=m=>P.filter(p=>mk(p.date||"")===m);
@@ -171,8 +181,8 @@ function home(){
   const ms=[];let m=cur;for(let k=0;k<6;k++){ms.unshift(m);m=prevMonth(m)}
   const vals=ms.map(x=>inM(x).reduce((s,p)=>s+tot(p),0)),withData=vals.filter(v=>v>0);
   const avg=withData.length?withData.reduce((s,v)=>s+v,0)/withData.length:0;
-  const bc={},bs={},bp={},bw={};
-  a.forEach(p=>{bw[who(p)||"Sem registro"]=(bw[who(p)||"Sem registro"]||0)+tot(p);bs[p.store||"Sem nome"]=(bs[p.store||"Sem nome"]||0)+tot(p);(p.items||[]).forEach(i=>{bc[i.cat||"Outros"]=(bc[i.cat||"Outros"]||0)+net(i);{const kn=i.nome+(i.marca?" · "+i.marca:"");bp[kn]=(bp[kn]||0)+net(i)}})});
+  const bc={},bs={},bp={},bw={},ci={};
+  a.forEach(p=>{bw[who(p)||"Sem registro"]=(bw[who(p)||"Sem registro"]||0)+tot(p);bs[p.store||"Sem nome"]=(bs[p.store||"Sem nome"]||0)+tot(p);(p.items||[]).forEach(i=>{bc[i.cat||"Outros"]=(bc[i.cat||"Outros"]||0)+net(i);(ci[i.cat||"Outros"]=ci[i.cat||"Outros"]||[]).push({i,p});{const kn=i.nome+(i.marca?" · "+i.marca:"");bp[kn]=(bp[kn]||0)+net(i)}})});
   const bars=(o,colored)=>{const e=Object.entries(o).sort((x,y)=>y[1]-x[1]);const mx=e[0]?e[0][1]:1;
     return e.length?e.map(([k,v])=>{const c=colored?COL[Math.max(0,CATS.indexOf(k))]:"var(--ac)";return `<div class="li"><span>${esc(k)}</span><b>${R(v)}</b></div><div class="bar"><i style="width:${v/mx*100}%;background:${c}"></i></div>`}).join(""):'<div class="mu">Nada lançado neste mês.</div>'};
   const top=Object.fromEntries(Object.entries(bp).sort((x,y)=>y[1]-x[1]).slice(0,5));
@@ -180,7 +190,7 @@ function home(){
   return banner()+`<div class="card hero"><div class="mu">Gasto em ${mname(cur)}</div><div class="big">${R(ta)}</div><div>${cmp}</div><div class="mu" style="margin-top:8px">${a.length} compra(s) no mês · média mensal ${R(avg)}</div></div>
   <button class="pri cta" onclick="go('form')">${ic("plus")}Cadastrar compra</button>
   <h2>Últimos 6 meses</h2><div class="card">${chart(ms,vals)}</div>
-  <h2>Por categoria</h2><div class="card">${bars(bc,true)}</div>
+  <h2>Por categoria</h2><div class="card">${catList(bc,ci)}</div>
   <h2>Pesam mais no orçamento</h2><div class="card">${bars(top)}</div>
   <h2>Por supermercado</h2><div class="card">${bars(bs)}</div>
   <h2>Quem comprou</h2><div class="card">${bars(bw)}</div>`;
@@ -308,7 +318,7 @@ function useQR(t){
   msg="Nota lida. Confira a data, informe o supermercado e lance os itens do cupom.";
   view="form";render();scrollTo(0,0);
 }
-let PASTE="";
+let PASTE="",openCat={};
 const nbr=v=>{v=String(v).trim();return parseFloat(v.includes(",")?v.replace(/\./g,"").replace(",","."):v)||0};
 const ABR={ARR:"Arroz",BEB:"Bebida",FRAL:"Fralda",SALG:"Salgadinho",BISC:"Biscoito",BOL:"Bolinho",MAC:"Macarrão",AMEND:"Amendoim",ALF:"Alfajor",FEIJ:"Feijão",PARM:"Parmesão",RAL:"Ralado",LTE:"Leite",INT:"Integral",COND:"Condicionador",SBT:"Sabonete",CD:"Creme dental",COLG:"Colgate",AZE:"Azeitona",PIZ:"Pizza",COS:"Costela",BOV:"Bovina",FG:"Frango","S/O":"sem osso",AM:"Amaciante",SANIT:"Sanitária",REFRES:"Refrescante",HIDRAT:"Hidratante",CAL:"Calabresa",CHO:"Chocolate",MOR:"Morango",ABAC:"Abacaxi",DES:"Desossada",FAT:"Fatiada",GAL:"Galinha",CAR:"Carioca",ORIG:"Original",BAN:"Banana",DESOD:"Desodorante",SHAMP:"Shampoo"};
 function expandNome(s){return s.split(" ").filter(Boolean).map(w=>{const k=w.toUpperCase();return ABR[k]||(w.length>2?w[0].toUpperCase()+w.slice(1).toLowerCase():w.toLowerCase())}).join(" ")}
