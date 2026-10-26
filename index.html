@@ -150,10 +150,10 @@ const mshort=m=>{const[y,mo]=m.split("-");return new Date(y,mo-1,1).toLocaleDate
 
 function render(){
   document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.v===view));
-  $("#app").innerHTML=view==="home"?home():view==="list"?list():view==="prod"?prods():view==="qr"?qrView():form();
+  $("#app").innerHTML=view==="home"?home():view==="list"?list():view==="prod"?prods():view==="qr"?qrView():view==="foto"?fotoView():form();
   if(view==="form")bindForm();
 }
-function go(v,id){stopQR();QRLINK="";view=v;ed=id||null;draft=null;msg="";render();scrollTo(0,0)}
+function go(v,id){stopQR();QRLINK="";BUSCA="";view=v;ed=id||null;draft=null;msg="";render();scrollTo(0,0)}
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>go(b.dataset.v));
 const empty=(t,b)=>`<div class="card empty">${ic("cart")}<div>${t}</div>${b||""}</div>`;
 
@@ -183,6 +183,82 @@ function alerta(){
   const L=esquecidos();if(!L.length)return"";
   return `<div class="card" style="border-color:var(--rd)"><b style="display:flex;gap:8px;align-items:center;color:var(--rd)">${ic("bell")}Pode ter esquecido (${L.length})</b><div class="mu" style="margin:4px 0 6px">Itens que você costuma comprar e que estão atrasados.</div>${L.slice(0,8).map(o=>`<div class="tr fl"><span>${esc(o.i.nome)}${o.i.marca?" · "+esc(o.i.marca):""}<div class="mu">Comprado ${o.n}x, em média a cada ${o.avg} dias · última vez em ${D(o.last)} (há ${o.since} dias)</div></span><button style="padding:6px 10px;font-size:.75rem" onclick="ignorar('${encodeURIComponent(o.k+"|"+o.last)}')">Ignorar</button></div>`).join("")}${L.length>8?`<div class="mu" style="margin-top:6px">+${L.length-8} outros itens</div>`:""}</div>`;
 }
+let selM="",BUSCA="",META=0;try{META=Number(localStorage.getItem("meumercado_meta"))||0}catch(e){}
+const norm=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+const nextMonth=m=>{let[y,mo]=m.split("-").map(Number);mo++;if(mo>12){mo=1;y++}return y+"-"+String(mo).padStart(2,"0")};
+function seletor(cur,nowM){return `<div class="fl" style="margin-bottom:10px"><button onclick="mudaMes(-1)" aria-label="Mês anterior">‹</button><b style="text-transform:capitalize">${mname(cur)}</b><button onclick="mudaMes(1)" ${cur>=nowM?'disabled style="opacity:.4"':""} aria-label="Próximo mês">›</button></div>`}
+function mudaMes(d){const n=new Date(),nowM=n.getFullYear()+"-"+String(n.getMonth()+1).padStart(2,"0");let m=selM||nowM;m=d<0?prevMonth(m):nextMonth(m);if(m>nowM)return;selM=m===nowM?"":m;render()}
+function defMeta(){const v=prompt("Meta de gasto por mês, em R$ (deixe vazio para remover):",META?String(META).replace(".",","):"");if(v===null)return;META=nbr(v);try{localStorage.setItem("meumercado_meta",String(META))}catch(e){}render()}
+function metaHtml(ta){
+  if(!META)return `<div style="margin-top:10px"><button style="padding:6px 12px;font-size:.78rem" onclick="defMeta()">Definir meta mensal</button></div>`;
+  const p=ta/META*100;
+  return `<div style="margin-top:10px"><div class="fl mu"><span>Meta ${R(META)}</span><span>${p.toFixed(0)}%${ta>META?" · passou "+R(ta-META):" · restam "+R(META-ta)}</span></div><div class="bar" style="background:rgba(255,255,255,.25)"><i style="width:${Math.min(100,p)}%;background:${ta>META?"#ffb4b4":"#fff"}"></i></div><button style="padding:4px 10px;font-size:.72rem" onclick="defMeta()">Alterar meta</button></div>`;
+}
+const keyOf=i=>[i.nome,i.marca,i.emb,i.un].map(x=>String(x||"").toLowerCase().trim()).join("|");
+function habExtras(cur){
+  const meses=[];let m=cur;for(let k=0;k<3;k++){m=prevMonth(m);meses.push(m)}
+  const nomes={},cnt={};
+  meses.forEach(mm=>{const set=new Set();P.filter(p=>mk(p.date||"")===mm).forEach(p=>(p.items||[]).forEach(i=>{const k=keyOf(i);set.add(k);nomes[k]=i}));set.forEach(k=>cnt[k]=(cnt[k]||0)+1)});
+  const comDados=meses.filter(mm=>P.some(p=>mk(p.date||"")===mm)).length;
+  const hab=Object.keys(cnt).filter(k=>cnt[k]>=2),atual={};
+  P.filter(p=>mk(p.date||"")===cur).forEach(p=>(p.items||[]).forEach(i=>{atual[keyOf(i)]=i}));
+  return{comDados,falt:hab.filter(k=>!atual[k]).map(k=>nomes[k]),extra:Object.keys(atual).filter(k=>!(cnt[k]>=2)).map(k=>atual[k])};
+}
+function habCard(cur){
+  const h=habExtras(cur);
+  if(h.comDados<2)return `<h2>Habituais e extras</h2><div class="card mu">Para saber o que é habitual, o app precisa de compras em pelo menos 2 dos 3 meses anteriores. Ainda não há dados suficientes.</div>`;
+  const nm=i=>esc(i.nome)+(i.marca?" · "+esc(i.marca):"");
+  const bl=(L,t)=>`<div style="margin:10px 0 4px"><b>${t} (${L.length})</b></div>`+(L.length?L.slice(0,10).map(i=>`<div class="tr">${nm(i)}</div>`).join("")+(L.length>10?`<div class="mu">+${L.length-10} outros</div>`:""):'<div class="mu">Nenhum.</div>');
+  return `<h2>Habituais e extras</h2><div class="card"><div class="mu">Habitual: item comprado em pelo menos 2 dos 3 meses anteriores a ${mname(cur)}.</div>${bl(h.falt,"Habituais ainda não comprados neste mês")}${bl(h.extra,"Extras, fora do habitual")}</div>`;
+}
+function busca(v){BUSCA=v;$("#lst").innerHTML=view==="list"?listBody():prodsBody()}
+async function recat(k,c){
+  k=decodeURIComponent(k);const x=products().find(y=>y.k===k);if(!x)return;const i=x.i;
+  let q=sb.from("purchase_items").update({category:c}).eq("household_id",HID).eq("name",i.nome).eq("unit",i.un);
+  q=i.marca?q.eq("brand",i.marca):q.is("brand",null);
+  q=i.emb?q.eq("pack_size",i.emb):q.is("pack_size",null);
+  const{error}=await q;if(error){alert("Não foi possível mudar a categoria: "+error.message);return}
+  await load();
+}
+let PH=[];
+function fotoView(){
+  return `<h2>Fotografar o cupom em etapas</h2>
+  <div class="card"><div class="mu">Para cupom grande, fotografe em partes, de cima para baixo:</div>
+  <ol style="padding-left:18px;margin:8px 0;line-height:1.6"><li>Estique o cupom numa mesa, com boa luz e sem sombra.</li><li>Cada foto cobre de 8 a 10 itens, com o celular parado, paralelo ao papel e bem perto.</li><li>A próxima foto começa no último item da anterior.</li><li>A última foto pega os totais: valor total, desconto e valor a pagar.</li></ol>
+  <input type="file" id="ph-cam" accept="image/*" capture="environment" style="display:none" onchange="addFoto(this)">
+  <input type="file" id="ph-gal" accept="image/*" multiple style="display:none" onchange="addFoto(this)">
+  <div class="row"><button class="pri" onclick="$('#ph-cam').click()">${ic("plus")}Tirar foto</button><button onclick="$('#ph-gal').click()">Da galeria</button></div></div>
+  ${PH.map((f,k)=>`<div class="card fl"><img src="${f.url}" alt="" style="height:72px;border-radius:8px"><b>Foto ${k+1}</b><button onclick="rmFoto(${k})">Remover</button></div>`).join("")}
+  ${PH.length?`<button class="pri cta" onclick="shareFotos()">Salvar ou enviar as ${PH.length} foto(s)</button><div class="mu">As fotos são salvas em preto e branco com contraste melhorado, o que ajuda a ler papel desbotado. Depois, envie as fotos ao Claude neste chat e peça: "extraia os itens no formato do app". Cole o resultado em Nova, no cartão Importar cupom.</div>`:""}`;
+}
+function enhance(file){return new Promise((res,rej)=>{
+  const img=new Image(),u=URL.createObjectURL(file);
+  img.onload=()=>{
+    const k=Math.min(1,2600/Math.max(img.width,img.height)),w=Math.round(img.width*k),h=Math.round(img.height*k),c=document.createElement("canvas");
+    c.width=w;c.height=h;const x=c.getContext("2d");x.drawImage(img,0,0,w,h);URL.revokeObjectURL(u);
+    const d=x.getImageData(0,0,w,h),a=d.data,hist=new Uint32Array(256);
+    for(let i=0;i<a.length;i+=4){const g=Math.round(.299*a[i]+.587*a[i+1]+.114*a[i+2]);a[i]=a[i+1]=a[i+2]=g;hist[g]++}
+    const tot=w*h;let lo=0,hi=255,s=0;
+    for(let i=0;i<256;i++){s+=hist[i];if(s>=tot*.02){lo=i;break}}
+    s=0;for(let i=255;i>=0;i--){s+=hist[i];if(s>=tot*.02){hi=i;break}}
+    if(hi-lo<30){lo=0;hi=255}
+    const lut=new Uint8ClampedArray(256);for(let i=0;i<256;i++)lut[i]=Math.max(0,Math.min(255,(i-lo)/(hi-lo)*255));
+    for(let i=0;i<a.length;i+=4){const v=lut[a[i]];a[i]=a[i+1]=a[i+2]=v}
+    x.putImageData(d,0,0);res(c.toDataURL("image/jpeg",.9));
+  };
+  img.onerror=()=>rej(new Error("Não foi possível abrir a foto"));img.src=u})}
+async function addFoto(inp){
+  const fs=[...(inp.files||[])];inp.value="";
+  for(const f of fs){try{PH.push({url:await enhance(f)})}catch(e){alert(e.message)}}
+  render();
+}
+function rmFoto(k){PH.splice(k,1);render()}
+async function shareFotos(){
+  const d=new Date().toISOString().slice(0,10);
+  const files=await Promise.all(PH.map(async(f,k)=>new File([await(await fetch(f.url)).blob()],`cupom-${d}-${String(k+1).padStart(2,"0")}.jpg`,{type:"image/jpeg"})));
+  if(navigator.canShare&&navigator.canShare({files})){try{await navigator.share({files,title:"Fotos do cupom"});return}catch(e){if(e.name==="AbortError")return}}
+  files.forEach(f=>{const a=document.createElement("a");a.href=URL.createObjectURL(f);a.download=f.name;document.body.appendChild(a);a.click();a.remove()});
+}
 function toggleCat(k){k=decodeURIComponent(k);openCat[k]=!openCat[k];render()}
 function catList(bc,ci){
   const e=Object.entries(bc).sort((x,y)=>y[1]-x[1]);
@@ -194,7 +270,7 @@ function catList(bc,ci){
     return `<div class="clk" onclick="toggleCat('${encodeURIComponent(k)}')"><div class="li"><span>${esc(k)} <span class="mu">· ${n} ${n===1?"item":"itens"}</span></span><b>${R(v)} ${op?"▾":"▸"}</b></div><div class="bar"><i style="width:${v/mx*100}%;background:${c}"></i></div></div>${rows}`}).join("");
 }
 function home(){
-  const now=new Date(),cur=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0"),pm=prevMonth(cur);
+  const now=new Date(),nowM=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0"),cur=selM||nowM,pm=prevMonth(cur);
   const inM=m=>P.filter(p=>mk(p.date||"")===m);
   const a=inM(cur),b=inM(pm),ta=a.reduce((s,p)=>s+tot(p),0),tb=b.reduce((s,p)=>s+tot(p),0);
   let cmp=`<span class="mu">Sem mês anterior para comparar</span>`;
@@ -208,18 +284,20 @@ function home(){
     return e.length?e.map(([k,v])=>{const c=colored?COL[Math.max(0,CATS.indexOf(k))]:"var(--ac)";return `<div class="li"><span>${esc(k)}</span><b>${R(v)}</b></div><div class="bar"><i style="width:${v/mx*100}%;background:${c}"></i></div>`}).join(""):'<div class="mu">Nada lançado neste mês.</div>'};
   const top=Object.fromEntries(Object.entries(bp).sort((x,y)=>y[1]-x[1]).slice(0,5));
   if(!P.length)return banner()+empty("Nenhuma compra ainda. Cadastre a primeira para ver seu painel.",`<button class="pri cta" onclick="go('form')">${ic("plus")}Cadastrar compra</button>`);
-  return banner()+`<div class="card hero"><div class="mu">Gasto em ${mname(cur)}</div><div class="big">${R(ta)}</div><div>${cmp}</div><div class="mu" style="margin-top:8px">${a.length} compra(s) no mês · média mensal ${R(avg)}</div></div>
+  return banner()+seletor(cur,nowM)+`<div class="card hero"><div class="mu">Gasto em ${mname(cur)}</div><div class="big">${R(ta)}</div><div>${cmp}</div><div class="mu" style="margin-top:8px">${a.length} compra(s) no mês · média mensal ${R(avg)}</div>${metaHtml(ta)}</div>
   <button class="pri cta" onclick="go('form')">${ic("plus")}Cadastrar compra</button>
   ${alerta()}
   <h2>Últimos 6 meses</h2><div class="card">${chart(ms,vals)}</div>
   <h2>Por categoria</h2><div class="card">${catList(bc,ci)}</div>
   <h2>Pesam mais no orçamento</h2><div class="card">${bars(top)}</div>
+  ${habCard(cur)}
   <h2>Por supermercado</h2><div class="card">${bars(bs)}</div>
   <h2>Quem comprou</h2><div class="card">${bars(bw)}</div>`;
 }
-function list(){
-  const s=[...P].sort((x,y)=>(y.date||"").localeCompare(x.date||""));
-  return `<h2>Histórico de compras</h2>`+(s.length?s.map(p=>`<div class="card clk hd" onclick="go('form','${esc(p.id)}')"><div class="ic">${ic("store")}</div><div><b>${esc(p.store||"Sem nome")}</b><div class="mu">${D(p.date)} · ${(p.items||[]).length} iten(s)${who(p)?" · "+who(p):""}</div><div class="mu" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc((p.items||[]).slice(0,4).map(i=>i.nome).join(", "))}</div></div><b>${R(tot(p))}</b></div>`).join(""):empty("Nenhuma compra cadastrada."));
+function list(){return `<h2>Histórico de compras</h2><input id="q" placeholder="Buscar mercado, produto ou data" value="${esc(BUSCA)}" oninput="busca(this.value)" style="margin-bottom:6px"><div id="lst">${listBody()}</div>`}
+function listBody(){
+  const q=norm(BUSCA),s=[...P].filter(p=>!q||norm((p.store||"")+" "+D(p.date)+" "+(p.items||[]).map(i=>i.nome+" "+i.marca).join(" ")).includes(q)).sort((x,y)=>(y.date||"").localeCompare(x.date||""));
+  return (s.length?s.map(p=>`<div class="card clk hd" onclick="go('form','${esc(p.id)}')"><div class="ic">${ic("store")}</div><div><b>${esc(p.store||"Sem nome")}</b><div class="mu">${D(p.date)} · ${(p.items||[]).length} iten(s)${who(p)?" · "+who(p):""}</div><div class="mu" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc((p.items||[]).slice(0,4).map(i=>i.nome).join(", "))}</div></div><b>${R(tot(p))}</b></div>`).join(""):empty(q?"Nada encontrado.":"Nenhuma compra cadastrada."));
 }
 function unitPrice(i){
   const e=i.emb;if(!e)return null;
@@ -242,10 +320,11 @@ function spark(h){
   const pts=v.map((y,i)=>[8+i*(W-16)/(v.length-1),H-6-(y-mn)/r*(H-14)]);
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto"><polyline points="${pts.map(p=>p.join(",")).join(" ")}" fill="none" stroke="var(--ac)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>${pts.map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="var(--ac)"/>`).join("")}</svg>`;
 }
-function prods(){
-  const L=products();
-  if(!L.length)return `<h2>Produtos e preços</h2>`+empty("Os produtos aparecem aqui depois que você cadastrar compras.");
-  return `<h2>Produtos e preços</h2><div class="mu" style="margin:-4px 2px 8px">Produtos só são agrupados quando nome, marca e embalagem são iguais.</div>`+L.map((x,n)=>{
+function prods(){return `<h2>Produtos e preços</h2><input id="q" placeholder="Buscar produto ou marca" value="${esc(BUSCA)}" oninput="busca(this.value)"><div class="mu" style="margin:6px 2px 8px">Produtos só são agrupados quando nome, marca e embalagem são iguais.</div><div id="lst">${prodsBody()}</div>`}
+function prodsBody(){
+  const q=norm(BUSCA),L=products().filter(x=>!q||norm(x.i.nome+" "+x.i.marca).includes(q));
+  if(!L.length)return empty(q?"Nada encontrado.":"Os produtos aparecem aqui depois que você cadastrar compras.");
+  return L.map((x,n)=>{
     const h=x.h,last=h[h.length-1],pv=h[h.length-2],v=h.map(y=>y.preco),mn=Math.min(...v),mx=Math.max(...v);
     let chip=`<span class="chip" style="background:var(--bg);color:var(--mu)">1ª compra</span>`;
     if(pv&&pv.preco>0){const d=last.preco-pv.preco;chip=d===0?`<span class="chip" style="background:var(--bg);color:var(--mu)">Sem variação</span>`:`<span class="chip ${d>0?"up":""}">${ic(d>0?"up":"down")}${R(Math.abs(d))} · ${pct(d/pv.preco*100)}</span>`}
@@ -254,7 +333,7 @@ function prods(){
     return `<div class="card clk" onclick="open[${JSON.stringify(x.k).replace(/"/g,"&quot;")}]=!open[${JSON.stringify(x.k).replace(/"/g,"&quot;")}];render()">
     <div class="fl"><div><b>${esc(x.i.nome)}</b><div class="mu">${esc(sub)||"&nbsp;"}</div></div><div style="text-align:right"><b>${R(last.preco)}</b><div class="mu">${up?R(up.v)+up.u:""}</div></div></div>
     <div class="fl" style="margin-top:8px"><div>${chip}</div><div class="mu">mín ${R(mn)} · máx ${R(mx)}</div></div>
-    ${op?`<div style="margin-top:10px">${spark(h)}</div>${[...h].reverse().map(y=>`<div class="tr fl"><span>${D(y.date)} · ${esc(y.store||"")}</span><b>${R(y.preco)}</b></div>`).join("")}`:""}</div>`}).join("");
+    ${op?`<div style="margin-top:10px" onclick="event.stopPropagation()"><label>Categoria (vale para todas as compras deste produto)</label><select onchange="recat('${encodeURIComponent(x.k)}',this.value)">${CATS.map(c=>`<option ${c===(last.i.cat||"Outros")?"selected":""}>${c}</option>`).join("")}</select></div><div style="margin-top:10px">${spark(h)}</div>${[...h].reverse().map(y=>`<div class="tr fl"><span>${D(y.date)} · ${esc(y.store||"")}</span><b>${R(y.preco)}</b></div>`).join("")}`:""}</div>`}).join("");
 }
 function itemRow(i){
   i=i||{nome:"",marca:"",emb:"",un:"un",qtd:1,preco:"",desc:"",cat:"Alimentação"};
@@ -313,7 +392,7 @@ async function del(){
   try{await remove(ed);go("list")}catch(e){msg="Não foi possível excluir.";render()}
 }
 let stream=null,scanning=false,QRLINK="";
-function qrView(){return `<h2>Ler QR Code do cupom</h2><div class="card"><video id="qv" playsinline muted style="width:100%;border-radius:14px;background:#000;aspect-ratio:1/1;object-fit:cover"></video><div class="err" id="qe"></div><button class="pri cta" onclick="startQR()">${ic("qr")}Abrir câmera</button><div class="mu">Aponte para o QR Code do cupom. Se a câmera não abrir, cole o link abaixo.</div><label>Link do QR ou chave de acesso (44 dígitos)</label><input id="qlink" placeholder="Cole aqui"><button class="cta" onclick="useQR($('#qlink').value)">Usar este código</button></div>`}
+function qrView(){return `<h2>Ler QR Code do cupom</h2><div class="card"><video id="qv" playsinline muted style="width:100%;border-radius:14px;background:#000;aspect-ratio:1/1;object-fit:cover"></video><div class="err" id="qe"></div><button class="pri cta" onclick="startQR()">${ic("qr")}Abrir câmera</button><div class="mu">Aponte para o QR Code do cupom. Se a câmera não abrir, cole o link abaixo.</div><label>Link do QR ou chave de acesso (44 dígitos)</label><input id="qlink" placeholder="Cole aqui"><button class="cta" onclick="useQR($('#qlink').value)">Usar este código</button></div><div class="card"><b>Cupom grande ou QR que não lê?</b><div class="mu" style="margin:4px 0 8px">Fotografe o cupom em etapas e peça ao Claude para ler.</div><button class="cta" onclick="go('foto')">${ic("list")}Fotografar o cupom em etapas</button></div>`}
 async function startQR(){
   const qe=$("#qe");qe.textContent="";
   try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}}})}catch(e){qe.textContent="Não foi possível abrir a câmera. Permita o acesso nas configurações do navegador ou cole o link abaixo.";return}
@@ -342,21 +421,21 @@ function useQR(t){
 }
 let PASTE="",openCat={};
 const nbr=v=>{v=String(v).trim();return parseFloat(v.includes(",")?v.replace(/\./g,"").replace(",","."):v)||0};
-const ABR={ARR:"Arroz",BEB:"Bebida",FRAL:"Fralda",SALG:"Salgadinho",BISC:"Biscoito",BOL:"Bolinho",MAC:"Macarrão",AMEND:"Amendoim",ALF:"Alfajor",FEIJ:"Feijão",PARM:"Parmesão",RAL:"Ralado",LTE:"Leite",INT:"Integral",COND:"Condicionador",SBT:"Sabonete",CD:"Creme dental",COLG:"Colgate",AZE:"Azeitona",PIZ:"Pizza",COS:"Costela",BOV:"Bovina",FG:"Frango","S/O":"sem osso",AM:"Amaciante",SANIT:"Sanitária",REFRES:"Refrescante",HIDRAT:"Hidratante",CAL:"Calabresa",CHO:"Chocolate",MOR:"Morango",ABAC:"Abacaxi",DES:"Desossada",FAT:"Fatiada",GAL:"Galinha",CAR:"Carioca",ORIG:"Original",BAN:"Banana",DESOD:"Desodorante",SHAMP:"Shampoo"};
-function expandNome(s){return s.split(" ").filter(Boolean).map(w=>{const k=w.toUpperCase();return ABR[k]||(w.length>2?w[0].toUpperCase()+w.slice(1).toLowerCase():w.toLowerCase())}).join(" ")}
+const ABR={CONG:"Congelado",DET:"Detergente",LIQ:"Líquido",MARG:"Margarina",CAFE:"Café",OLEO:"Óleo",SARD:"Sardinha",IOG:"Iogurte",ACHOC:"Achocolatado",ACUC:"Açúcar",QJO:"Queijo",AZ:"Azeitona",VDE:"Verde",ABS:"Absorvente",TEMP:"Tempero",TOALHA:"Toalha",UMED:"Umedecida",CHICL:"Chiclete",ALIM:"Alimento",MAT:"Matinal",COST:"Costelinha",SUIN:"Suína",HIG:"Higiênico",ARR:"Arroz",BEB:"Bebida",FRAL:"Fralda",SALG:"Salgadinho",BISC:"Biscoito",BOL:"Bolinho",MAC:"Macarrão",AMEND:"Amendoim",ALF:"Alfajor",FEIJ:"Feijão",PARM:"Parmesão",RAL:"Ralado",LTE:"Leite",INT:"Integral",COND:"Condicionador",SBT:"Sabonete",CD:"Creme dental",COLG:"Colgate",AZE:"Azeitona",PIZ:"Pizza",COS:"Costela",BOV:"Bovina",FG:"Frango","S/O":"sem osso",AM:"Amaciante",SANIT:"Sanitária",REFRES:"Refrescante",HIDRAT:"Hidratante",CAL:"Calabresa",CHO:"Chocolate",MOR:"Morango",ABAC:"Abacaxi",DES:"Desossada",FAT:"Fatiada",GAL:"Galinha",CAR:"Carioca",ORIG:"Original",BAN:"Banana",DESOD:"Desodorante",SHAMP:"Shampoo"};
+function expandNome(s){return s.replace(/\./g," ").split(" ").filter(Boolean).map(w=>{const k=w.toUpperCase();return ABR[k]||(w.length>2?w[0].toUpperCase()+w.slice(1).toLowerCase():w.toLowerCase())}).join(" ")}
 function guessCat(n){n=n.toLowerCase();
-  const m=[["Hortifruti",/banana|ma[çc][ãa]|tomate|cebola|batata|alface|cenoura|laranja|lim[ãa]o|abacate|mam[ãa]o|verdura|fruta|uva|morango|pera|melancia|abobrinha|br[óo]colis|couve/],
-  ["Carnes e congelados",/carne|frango|bacon|costel|lingui|peito|pizza|congel|hamb|peixe|fil[ée]|bovin|su[ií]n|salsicha|nuggets|lasanha|sobrecoxa|coxa|ac[ée]m|picanha|patinho|alcatra|mortadela|presunto/],
-  ["Higiene pessoal",/sabonete|shampoo|xampu|condicion|creme dental|gel dental|colgate|desodor|fralda|absorv|papel hig|escova|oral|pompom|lux|seda|toalha umed|len[çc]o umed|hastes|cotonete|barbear|protetor|hidratante|talco|sbt/],
-  ["Limpeza",/detergente|sab[ãa]o|amacia|sanit|desinf|esponja|limpa|multiuso|alvejante|brilh|lava|vassoura|rodo|pano|saco de lixo|inseticida|cloro|[áa]lcool/],
-  ["Bebidas",/refri|suco|[áa]gua|cerveja|vinho|guaran|coca|energ|vigor|maguary|bebida|ch[áa] |t[ée] |isot|gatorade|whisky|vodka|fanta|sprite|pepsi/],
-  ["Doces, besteiras e lanches",/biscoit|bolach|choc|bala|salgad|snack|doce|sorvete|amendoim|bomb|wafer|pipoca|nutry|alfajor|cheetos|fandangos|ruffles|bolinho|gelatina|pa[çc]oca|sucrilhos?|goma|pirulito|torrada|barra de|trident|chiclete/],
-  ["Alimentação",/arroz|feij|macarr|farinha|a[çc][úu]car|[óo]leo|leite|caf[ée]|molho|p[ãa]o|ovo|queijo|parmes|farofa|aveia|cereal|miojo|nissin|azeit|sal |tempero|vinagre|iogurte|petit|manteiga|margarina|maionese|ketchup|massa|wrap|fub[áa]|polvilho|extrato|milho|ervilha|atum|sardinha/]];
+  const m=[["Carnes e congelados",/carne|frango|bacon|costel|lingui|peito|pizza|congel|hamb|peixe|fil[ée]|bovin|su[ií]n|salsicha|nuggets|lasanha|sobrecoxa|coxa|ac[ée]m|picanha|patinho|alcatra|mortadela|presunto|batata bem|batata congel/],
+  ["Hortifruti",/banana|\bma[çc][ãa]s?(?![a-zà-ú])|tomate|cebola|batata|alface|cenoura|laranja|lim[ãa]o|abacate|mam[ãa]o|verdura|fruta fresca|abobrinha|br[óo]colis|couve|melancia/],
+  ["Higiene pessoal",/sabonete|shampoo|xampu|condicion|creme dental|gel dental|colgate|desodor|fralda|absorv|always|papel hig|escova|oral|pompom|toalha umed|len[çc]o umed|hastes|cotonete|barbear|protetor|hidratante|talco/],
+  ["Limpeza",/detergente|sab[ãa]o|amacia|sanit|desinf|esponja|limpa|multiuso|alvejante|brilh|lava|vassoura|rodo|saco de lixo|inseticida|cloro|[áa]lcool/],
+  ["Bebidas",/refri|suco|[áa]gua|cerveja|vinho|guaran|coca|energ|vigor|maguary|bebida|polpa de fruta|polpa norte|n[ée]ctar|mupy|alimento de soja|isot|gatorade|whisky|vodka|fanta|sprite|pepsi/],
+  ["Doces, besteiras e lanches",/biscoit|bolach|choc|bala |salgad|snack|doce|sorvete|amendoim|bomb|wafer|pipoca|nutry|alfajor|cheetos|fandangos|ruffles|bolinho|gelatina|pa[çc]oca|sucrilhos?|goma de mascar|pirulito|torrada|barra de|trident|chiclete|marshmallow|goiabada|rosquinha|mentos|snickers|crunch|negresco|passatempo|prest[ií]gio|alpino|club social|pettiz|yokitos|fofura|elma chips|marilan|piraqu|nesfit/],
+  ["Alimentação",/arroz|feij|macarr|farinha|a[çc][úu]car|[óo]leo|leite|caf[ée]|molho|p[ãa]o|ovo|queijo|parmes|farofa|aveia|cereal|miojo|nissin|azeit|sal |tempero|vinagre|iogurte|petit|manteiga|margarina|maionese|ketchup|massa|wrap|fub[áa]|polvilho|extrato|milho|ervilha|atum|sardinha|shoyu|achocolat|toddy|tapioca|goma de mandioca|polpa/]];
   for(const[c,r]of m)if(r.test(n))return c;return"Outros"}
 function parseCupom(t){
   t=String(t||"").replace(/\r/g,"");
   if(t.trim()[0]==="{")return parseJSONCupom(t.trim());
-  const re=/([^\n(]+?)\s*\(\s*C[óo]digo:\s*(\d+)\s*\)[\s\S]*?Qtde\.?\s*:?\s*([\d.,]+)[\s\S]*?UN\s*:?\s*([A-Za-z]+)[\s\S]*?Vl\.?\s*Unit\.?\s*:?\s*(?:R\$)?\s*([\d.,]+)[\s\S]*?Vl\.?\s*Total\s*:?\s*(?:R\$)?\s*([\d.,]+)/gi;
+  const re=/([^\n(]+?)\s*\(\s*C[óo]digo:\s*([A-Za-z0-9]+)\s*\)[\s\S]*?Qtde\.?\s*:?\s*([\d.,]+)[\s\S]*?UN\s*:?\s*([A-Za-z]+)[\s\S]*?Vl\.?\s*Unit\.?\s*:?\s*(?:R\$)?\s*([\d.,]+)[\s\S]*?Vl\.?\s*Total\s*:?\s*(?:R\$)?\s*([\d.,]+)/gi;
   const it=[];let m;
   while((m=re.exec(t))){const un=m[4].toLowerCase(),nome=expandNome(m[1].replace(/\s+/g," ").trim());
     it.push({nome,marca:"",emb:0,un:["kg","g","l","ml"].includes(un)?(un==="l"?"L":un):"un",qtd:nbr(m[3]),preco:nbr(m[5]),desc:0,cat:guessCat(nome),_t:nbr(m[6])})}
