@@ -259,6 +259,59 @@ async function shareFotos(){
   if(navigator.canShare&&navigator.canShare({files})){try{await navigator.share({files,title:"Fotos do cupom"});return}catch(e){if(e.name==="AbortError")return}}
   files.forEach(f=>{const a=document.createElement("a");a.href=URL.createObjectURL(f);a.download=f.name;document.body.appendChild(a);a.click();a.remove()});
 }
+function histMap(){const m={};P.forEach(p=>(p.items||[]).forEach(i=>{(m[keyOf(i)]=m[keyOf(i)]||[]).push({d:p.date||"",pr:i.preco,pid:p.id})}));Object.values(m).forEach(a=>a.sort((x,y)=>x.d.localeCompare(y.d)));return m}
+function economia(cur){
+  const H=histMap();let desc=0,efeito=0,n=0;const L=[];
+  P.filter(p=>mk(p.date||"")===cur).forEach(p=>(p.items||[]).forEach(i=>{
+    desc+=i.desc||0;
+    let prev=null;for(const r of (H[keyOf(i)]||[])){if(r.d<(p.date||"")&&r.pid!==p.id)prev=r}
+    if(prev&&prev.pr>0){const ef=(i.preco-prev.pr)*i.qtd;efeito+=ef;n++;L.push({i,prev,ef,pct:(i.preco-prev.pr)/prev.pr*100})}
+  }));
+  return{desc,efeito,n,caiu:L.filter(x=>x.ef<-0.005).sort((a,b)=>a.ef-b.ef).slice(0,5),subiu:L.filter(x=>x.ef>0.005).sort((a,b)=>b.ef-a.ef).slice(0,5)};
+}
+function agrega(m){const o={};P.filter(p=>mk(p.date||"")===m).forEach(p=>(p.items||[]).forEach(i=>{const k=keyOf(i),x=o[k]=o[k]||{q:0,s:0};x.q+=i.qtd;x.s+=net(i)}));return o}
+function explica(cur){
+  const a=agrega(cur),b=agrega(prevMonth(cur));
+  if(!Object.keys(a).length||!Object.keys(b).length)return null;
+  let pr=0,qt=0,nov=0,sai=0,m=0;
+  for(const k in a){if(b[k]&&b[k].q>0&&a[k].q>0){const pc=a[k].s/a[k].q,pp=b[k].s/b[k].q;pr+=(pc-pp)*a[k].q;qt+=(a[k].q-b[k].q)*pp;m++}else nov+=a[k].s}
+  for(const k in b)if(!a[k])sai+=b[k].s;
+  return{pr,qt,nov,sai,m,total:pr+qt+nov-sai};
+}
+function economiaCard(cur){
+  const e=economia(cur),x=explica(cur);
+  if(!P.some(p=>mk(p.date||"")===cur))return"";
+  const fm=v=>(v>0.005?"+":v<-0.005?"−":"")+R(Math.abs(v)),cor=v=>v>0.005?"var(--rd)":v<-0.005?"var(--ac)":"inherit";
+  const lin=(t,v)=>`<div class="tr fl"><span>${t}</span><b style="color:${cor(v)}">${fm(v)}</b></div>`;
+  const nm=i=>esc(i.nome)+(i.marca?" · "+esc(i.marca):"");
+  const rows=(L)=>L.map(y=>`<div class="tr fl"><span>${nm(y.i)}<div class="mu">${R(y.prev.pr)} → ${R(y.i.preco)} (${y.pct>0?"+":"−"}${pct(y.pct)}) · ${String(y.i.qtd).replace(".",",")} un.</div></span><b style="color:${cor(y.ef)}">${fm(y.ef)}</b></div>`).join("");
+  const saldo=e.desc-e.efeito;
+  return `<h2>Economia e variação de preços</h2><div class="card">
+  <div class="mu">Saldo do mês: descontos recebidos, mais preços que caíram, menos preços que subiram, só nos itens que você já tinha comprado antes.</div>
+  <div class="big" style="font-size:1.6rem;color:${saldo<-0.005?"var(--rd)":"var(--ac)"}">${saldo<-0.005?"Gastou "+R(-saldo)+" a mais":"Economizou "+R(saldo)}</div>
+  ${lin("Descontos recebidos",-e.desc)}
+  ${e.n?lin(`Preço dos itens repetidos (${e.n} itens, comparado à compra anterior)`,e.efeito):`<div class="tr mu">Nenhum item deste mês se repetiu com nome, marca e embalagem iguais a uma compra anterior. Na aba Produtos, use "Juntar com outro produto" para unir nomes diferentes do mesmo item.</div>`}
+  ${e.caiu.length?`<div style="margin:10px 0 2px"><b>Ficaram mais baratos</b></div>${rows(e.caiu)}`:""}
+  ${e.subiu.length?`<div style="margin:10px 0 2px"><b>Ficaram mais caros</b></div>${rows(e.subiu)}`:""}
+  ${x?`<div style="margin:14px 0 2px"><b>Por que o gasto mudou em relação a ${mname(prevMonth(cur))}</b></div>
+  ${lin("Preço dos itens que você comprou nos dois meses",x.pr)}${lin("Quantidade comprada desses mesmos itens",x.qt)}${lin("Produtos novos neste mês",x.nov)}${lin("Produtos que não comprou de novo",-x.sai)}
+  <div class="tr fl"><b>Variação total do gasto</b><b style="color:${cor(x.total)}">${fm(x.total)}</b></div>
+  <div class="mu">${x.m} produto(s) comparados entre os dois meses. A comparação só vê produtos com nome, marca e embalagem iguais.</div>`:`<div class="mu" style="margin-top:10px">Para explicar a variação do gasto, o app precisa de compras no mês anterior.</div>`}</div>`;
+}
+function blocoSt(h){
+  const por={};h.forEach(y=>{por[y.store||"Sem nome"]=y});const e=Object.entries(por);
+  if(e.length<2)return"";
+  return `<div style="margin-top:10px"><b>Último preço por supermercado</b></div>`+e.sort((a,b)=>a[1].preco-b[1].preco).map(([s,y],n)=>`<div class="tr fl"><span>${esc(s)} <span class="mu">${D(y.date)}</span></span><b style="${n===0?"color:var(--ac)":""}">${R(y.preco)}</b></div>`).join("")+`<div class="mu">São os preços da última compra em cada lugar, não os de hoje.</div>`;
+}
+async function juntar(k,k2){
+  if(!k2)return;k=decodeURIComponent(k);k2=decodeURIComponent(k2);
+  const L=products(),a=L.find(y=>y.k===k),b=L.find(y=>y.k===k2);if(!a||!b)return;
+  if(!confirm(`Juntar "${a.i.nome}" em "${b.i.nome}"?\n\nTodas as compras de "${a.i.nome}" passam a usar o nome, a marca e a embalagem de "${b.i.nome}". O app não desfaz isso sozinho.`))return;
+  let q=sb.from("purchase_items").update({name:b.i.nome,brand:b.i.marca||null,pack_size:b.i.emb||null,unit:b.i.un}).eq("household_id",HID).eq("name",a.i.nome).eq("unit",a.i.un);
+  q=a.i.marca?q.eq("brand",a.i.marca):q.is("brand",null);q=a.i.emb?q.eq("pack_size",a.i.emb):q.is("pack_size",null);
+  const{error}=await q;if(error){alert("Não foi possível juntar: "+error.message);return}
+  await load();
+}
 function toggleCat(k){k=decodeURIComponent(k);openCat[k]=!openCat[k];render()}
 function catList(bc,ci){
   const e=Object.entries(bc).sort((x,y)=>y[1]-x[1]);
@@ -287,6 +340,7 @@ function home(){
   return banner()+seletor(cur,nowM)+`<div class="card hero"><div class="mu">Gasto em ${mname(cur)}</div><div class="big">${R(ta)}</div><div>${cmp}</div><div class="mu" style="margin-top:8px">${a.length} compra(s) no mês · média mensal ${R(avg)}</div>${metaHtml(ta)}</div>
   <button class="pri cta" onclick="go('form')">${ic("plus")}Cadastrar compra</button>
   ${alerta()}
+  ${economiaCard(cur)}
   <h2>Últimos 6 meses</h2><div class="card">${chart(ms,vals)}</div>
   <h2>Por categoria</h2><div class="card">${catList(bc,ci)}</div>
   <h2>Pesam mais no orçamento</h2><div class="card">${bars(top)}</div>
@@ -322,7 +376,7 @@ function spark(h){
 }
 function prods(){return `<h2>Produtos e preços</h2><input id="q" placeholder="Buscar produto ou marca" value="${esc(BUSCA)}" oninput="busca(this.value)"><div class="mu" style="margin:6px 2px 8px">Produtos só são agrupados quando nome, marca e embalagem são iguais.</div><div id="lst">${prodsBody()}</div>`}
 function prodsBody(){
-  const q=norm(BUSCA),L=products().filter(x=>!q||norm(x.i.nome+" "+x.i.marca).includes(q));
+  const q=norm(BUSCA),ALL=products(),L=ALL.filter(x=>!q||norm(x.i.nome+" "+x.i.marca).includes(q));
   if(!L.length)return empty(q?"Nada encontrado.":"Os produtos aparecem aqui depois que você cadastrar compras.");
   return L.map((x,n)=>{
     const h=x.h,last=h[h.length-1],pv=h[h.length-2],v=h.map(y=>y.preco),mn=Math.min(...v),mx=Math.max(...v);
@@ -333,7 +387,7 @@ function prodsBody(){
     return `<div class="card clk" onclick="open[${JSON.stringify(x.k).replace(/"/g,"&quot;")}]=!open[${JSON.stringify(x.k).replace(/"/g,"&quot;")}];render()">
     <div class="fl"><div><b>${esc(x.i.nome)}</b><div class="mu">${esc(sub)||"&nbsp;"}</div></div><div style="text-align:right"><b>${R(last.preco)}</b><div class="mu">${up?R(up.v)+up.u:""}</div></div></div>
     <div class="fl" style="margin-top:8px"><div>${chip}</div><div class="mu">mín ${R(mn)} · máx ${R(mx)}</div></div>
-    ${op?`<div style="margin-top:10px" onclick="event.stopPropagation()"><label>Categoria (vale para todas as compras deste produto)</label><select onchange="recat('${encodeURIComponent(x.k)}',this.value)">${CATS.map(c=>`<option ${c===(last.i.cat||"Outros")?"selected":""}>${c}</option>`).join("")}</select></div><div style="margin-top:10px">${spark(h)}</div>${[...h].reverse().map(y=>`<div class="tr fl"><span>${D(y.date)} · ${esc(y.store||"")}</span><b>${R(y.preco)}</b></div>`).join("")}`:""}</div>`}).join("");
+    ${op?`<div style="margin-top:10px" onclick="event.stopPropagation()"><label>Categoria (vale para todas as compras deste produto)</label><select onchange="recat('${encodeURIComponent(x.k)}',this.value)">${CATS.map(c=>`<option ${c===(last.i.cat||"Outros")?"selected":""}>${c}</option>`).join("")}</select><label>Juntar com outro produto (para comparar preços)</label><select onchange="juntar('${encodeURIComponent(x.k)}',this.value)"><option value="">Escolher produto…</option>${ALL.filter(y=>y.k!==x.k).map(y=>`<option value="${encodeURIComponent(y.k)}">${esc(y.i.nome)}${y.i.marca?" · "+esc(y.i.marca):""}</option>`).join("")}</select></div>${blocoSt(h)}<div style="margin-top:10px">${spark(h)}</div>${[...h].reverse().map(y=>`<div class="tr fl"><span>${D(y.date)} · ${esc(y.store||"")}</span><b>${R(y.preco)}</b></div>`).join("")}`:""}</div>`}).join("");
 }
 function itemRow(i){
   i=i||{nome:"",marca:"",emb:"",un:"un",qtd:1,preco:"",desc:"",cat:"Alimentação"};
