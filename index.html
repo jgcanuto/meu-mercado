@@ -35,7 +35,7 @@ button:active{transform:scale(.98)}
 .cta{width:100%;padding:14px;font-size:1rem;margin:8px 0}
 .danger{color:var(--rd);border-color:var(--rd2);background:var(--rd2)}
 nav{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom,0px));display:flex;gap:4px;background:var(--card);border:1px solid var(--bd);border-radius:22px;padding:6px;box-shadow:var(--sh);width:min(420px,calc(100% - 24px))}
-nav button{flex:1;flex-direction:column;gap:2px;border:0;background:none;color:var(--mu);font-size:.68rem;padding:8px 4px;border-radius:16px}
+nav button{flex:1;flex-direction:column;gap:2px;border:0;background:none;color:var(--mu);font-size:.62rem;padding:8px 2px;border-radius:16px}
 nav button.on{background:var(--ac2);color:var(--ac)}
 input,select{font:inherit;width:100%;padding:11px 12px;border:1px solid var(--bd);border-radius:12px;background:var(--bg);color:var(--tx);min-width:0}
 input:focus,select:focus{outline:2px solid var(--ac);outline-offset:-1px}
@@ -64,12 +64,13 @@ label{display:block;font-size:.72rem;font-weight:600;color:var(--mu);margin:10px
 <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
 <symbol id="i-qr" viewBox="0 0 24 24"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h3v3h-3zM20 14v3M14 20h3M20 20v1"/></symbol>
 <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21h4"/></symbol>
+<symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></symbol>
 <symbol id="i-store" viewBox="0 0 24 24"><path d="M3 9l2-5h14l2 5M4 9v11h16V9M9 20v-6h6v6"/></symbol>
 </defs></svg>
 <main>
 <div class="top"><div class="logo"><svg class="i"><use href="#i-cart"/></svg></div><div><h1>Meu Mercado</h1><div class="mu" id="mode">Carregando…</div></div><button onclick="sb&&sb.auth.signOut().then(()=>location.reload())" style="margin-left:auto;padding:6px 12px;font-size:.75rem">Sair</button></div>
 <div id="app"></div></main>
-<nav><button data-v="home"><svg class="i"><use href="#i-home"/></svg>Resumo</button><button data-v="list"><svg class="i"><use href="#i-list"/></svg>Compras</button><button data-v="form"><svg class="i"><use href="#i-plus"/></svg>Nova</button><button data-v="prod"><svg class="i"><use href="#i-tag"/></svg>Produtos</button><button data-v="qr"><svg class="i"><use href="#i-qr"/></svg>Ler QR</button></nav>
+<nav><button data-v="home"><svg class="i"><use href="#i-home"/></svg>Resumo</button><button data-v="list"><svg class="i"><use href="#i-list"/></svg>Compras</button><button data-v="form"><svg class="i"><use href="#i-plus"/></svg>Nova</button><button data-v="prod"><svg class="i"><use href="#i-tag"/></svg>Produtos</button><button data-v="plano"><svg class="i"><use href="#i-target"/></svg>Plano</button><button data-v="qr"><svg class="i"><use href="#i-qr"/></svg>Ler QR</button></nav>
 <script>
 const CATS=["Alimentação","Hortifruti","Carnes e congelados","Higiene pessoal","Limpeza","Bebidas","Doces, besteiras e lanches","Outros"];
 const COL=["#0f9d6b","#16a34a","#e5484d","#7c5cff","#0ea5e9","#f59e0b","#ec4899","#64748b"];
@@ -128,6 +129,7 @@ async function load(){
     NM={};(me.data||[]).forEach(m=>NM[m.user_id]={name:m.display_name||"Outra pessoa"});
     const by={};it.forEach(x=>(by[x.purchase_id]=by[x.purchase_id]||[]).push({nome:x.name,marca:x.brand||"",emb:Number(x.pack_size)||0,un:x.unit,qtd:Number(x.qty),preco:Number(x.unit_price),desc:Number(x.discount),cat:x.category}));
     P=pu.map(p=>({id:p.id,date:p.purchased_on,store:p.store,key:p.access_key||"",por:p.user_id,items:by[p.id]||[]}));
+    await loadPlan();
     $("#mode").textContent=HH.name+" · código de convite: "+HH.invite_code;
   }catch(e){$("#mode").textContent="Erro ao carregar: "+(e.message||e)}
   render();
@@ -150,10 +152,10 @@ const mshort=m=>{const[y,mo]=m.split("-");return new Date(y,mo-1,1).toLocaleDate
 
 function render(){
   document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.v===view));
-  $("#app").innerHTML=view==="home"?home():view==="list"?list():view==="prod"?prods():view==="qr"?qrView():view==="foto"?fotoView():form();
+  $("#app").innerHTML=view==="home"?home():view==="list"?list():view==="prod"?prods():view==="plano"?planoView():view==="qr"?qrView():view==="foto"?fotoView():form();
   if(view==="form")bindForm();
 }
-function go(v,id){stopQR();QRLINK="";BUSCA="";view=v;ed=id||null;draft=null;msg="";render();scrollTo(0,0)}
+function go(v,id){stopQR();QRLINK="";BUSCA="";IMP=null;view=v;ed=id||null;draft=null;msg="";render();scrollTo(0,0)}
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>go(b.dataset.v));
 const empty=(t,b)=>`<div class="card empty">${ic("cart")}<div>${t}</div>${b||""}</div>`;
 
@@ -188,7 +190,6 @@ const norm=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u03
 const nextMonth=m=>{let[y,mo]=m.split("-").map(Number);mo++;if(mo>12){mo=1;y++}return y+"-"+String(mo).padStart(2,"0")};
 function seletor(cur,nowM){return `<div class="fl" style="margin-bottom:10px"><button onclick="mudaMes(-1)" aria-label="Mês anterior">‹</button><b style="text-transform:capitalize">${mname(cur)}</b><button onclick="mudaMes(1)" ${cur>=nowM?'disabled style="opacity:.4"':""} aria-label="Próximo mês">›</button></div>`}
 function mudaMes(d){const n=new Date(),nowM=n.getFullYear()+"-"+String(n.getMonth()+1).padStart(2,"0");let m=selM||nowM;m=d<0?prevMonth(m):nextMonth(m);if(m>nowM)return;selM=m===nowM?"":m;render()}
-function defMeta(){const v=prompt("Meta de gasto por mês, em R$ (deixe vazio para remover):",META?String(META).replace(".",","):"");if(v===null)return;META=nbr(v);try{localStorage.setItem("meumercado_meta",String(META))}catch(e){}render()}
 function metaHtml(ta){
   if(!META)return `<div style="margin-top:10px"><button style="padding:6px 12px;font-size:.78rem" onclick="defMeta()">Definir meta mensal</button></div>`;
   const p=ta/META*100;
@@ -312,6 +313,57 @@ async function juntar(k,k2){
   const{error}=await q;if(error){alert("Não foi possível juntar: "+error.message);return}
   await load();
 }
+let PLAN={total:0,cats:{}},PLAN_DB=true;
+async function loadPlan(){
+  try{
+    const{data,error}=await sb.from("plan").select("monthly_total,category_limits").eq("household_id",HID).maybeSingle();
+    if(error)throw error;PLAN_DB=true;
+    PLAN=data?{total:Number(data.monthly_total)||0,cats:data.category_limits||{}}:{total:META||0,cats:{}};
+  }catch(e){
+    PLAN_DB=false;
+    try{PLAN=JSON.parse(localStorage.getItem("meumercado_plano")||"null")||{total:META||0,cats:{}}}catch(_){PLAN={total:META||0,cats:{}}}
+  }
+  META=PLAN.total||0;
+}
+async function savePlan(){
+  META=PLAN.total||0;
+  try{localStorage.setItem("meumercado_plano",JSON.stringify(PLAN));localStorage.setItem("meumercado_meta",String(META))}catch(e){}
+  if(!PLAN_DB)return;
+  const{error}=await sb.from("plan").upsert({household_id:HID,monthly_total:PLAN.total||null,category_limits:PLAN.cats,updated_by:UID,updated_at:new Date().toISOString()},{onConflict:"household_id"});
+  if(error){PLAN_DB=false;alert("Não foi possível salvar o plano compartilhado ("+error.message+"). Ele foi salvo só neste aparelho.")}
+}
+async function defMeta(){
+  const v=prompt("Quanto você tem para gastar com mercado por mês, em R$? (deixe vazio para remover)",PLAN.total?String(PLAN.total).replace(".",","):"");
+  if(v===null)return;PLAN.total=nbr(v);await savePlan();render();
+}
+async function setLimite(i,v){const c=CATS[i],x=nbr(v);if(x>0)PLAN.cats[c]=x;else delete PLAN.cats[c];await savePlan();render()}
+function planoView(){
+  const n=new Date(),nowM=n.getFullYear()+"-"+String(n.getMonth()+1).padStart(2,"0"),cur=selM||nowM;
+  const a=P.filter(p=>mk(p.date||"")===cur),gasto=a.reduce((s,p)=>s+tot(p),0),T=PLAN.total||0;
+  const[y,mo]=cur.split("-").map(Number),dm=new Date(y,mo,0).getDate(),atual=cur===nowM,dia=atual?n.getDate():dm,rest=Math.max(0,dm-dia);
+  const cat={};a.forEach(p=>(p.items||[]).forEach(i=>{const c=i.cat||"Outros";cat[c]=(cat[c]||0)+net(i)}));
+  const ant=[];{let m=cur;for(let k=0;k<3;k++){m=prevMonth(m);const v=P.filter(p=>mk(p.date||"")===m).reduce((s,p)=>s+tot(p),0);if(v>0)ant.push(v)}}
+  const media=ant.length?ant.reduce((s,v)=>s+v,0)/ant.length:0,pc=T?gasto/T*100:0,cor=pc>100?"var(--rd)":pc>=80?"#e0a100":"var(--ac)";
+  const lin=(t,v,st)=>`<div class="tr fl"><span>${t}</span><b ${st?`style="${st}"`:""}>${v}</b></div>`;
+  let h=`<h2>Plano do mês</h2>`+seletor(cur,nowM)+`<div class="card"><div class="mu">Valor para gastar em ${mname(cur)}</div><div class="big">${T?R(T):"Não definido"}</div>`;
+  if(T){
+    h+=`<div class="bar" style="margin:10px 0 6px;height:10px"><i style="width:${Math.min(100,pc)}%;background:${cor}"></i></div>`
+    +lin("Gasto até agora",R(gasto)+" ("+pc.toFixed(0)+"%)")
+    +lin(gasto>T?"Passou do valor em":"Ainda pode gastar",R(Math.abs(T-gasto)),"color:"+(gasto>T?"var(--rd)":"var(--ac)"));
+    if(atual&&gasto<T&&rest>0)h+=lin(`Por dia, nos ${rest} dias que faltam`,R((T-gasto)/rest));
+    if(atual&&dia>=7&&gasto>0)h+=lin("Se continuar neste ritmo, fecha em cerca de",R(gasto/dia*dm))+`<div class="mu">Estimativa simples. Compras de mercado costumam vir em poucas idas grandes, então o número muda bastante.</div>`;
+    if(pc>=80)h+=`<div class="err">${pc>100?"Você passou do valor deste mês.":"Você já usou "+pc.toFixed(0)+"% do valor deste mês."}</div>`;
+  }else h+=`<div class="mu" style="margin-top:6px">Defina quanto você tem para gastar por mês, e o app acompanha o quanto já foi usado.</div>`;
+  h+=`<div class="row" style="margin-top:10px"><button class="pri" onclick="defMeta()">${T?"Alterar valor":"Definir valor"}</button></div></div>`;
+  if(media>0)h+=`<div class="card">${lin(`Média dos últimos ${ant.length} mês(es) com compras`,R(media))}${T?`<div class="mu">O valor do mês é ${(T/media*100).toFixed(0)}% dessa média.</div>`:""}</div>`;
+  const soma=Object.values(PLAN.cats).reduce((s,v)=>s+v,0);
+  h+=`<h2>Limite por categoria (opcional)</h2><div class="card">`+CATS.map((c,i)=>{
+    const g=cat[c]||0,L=PLAN.cats[c]||0,p=L?g/L*100:0,col=p>100?"var(--rd)":p>=80?"#e0a100":"var(--ac)";
+    return `<div style="margin-bottom:12px"><div class="fl"><span>${esc(c)}</span><span class="mu">gasto ${R(g)}</span></div>${L?`<div class="bar" style="margin:4px 0"><i style="width:${Math.min(100,p)}%;background:${col}"></i></div><div class="mu">${p>100?"Passou "+R(g-L):"Restam "+R(L-g)} do limite</div>`:""}<input inputmode="decimal" placeholder="Limite em R$" value="${L?String(L).replace(".",","):""}" onchange="setLimite(${i},this.value)"></div>`}).join("")
+    +(T&&soma>T?`<div class="err">Seus limites somam ${R(soma)}, acima do valor do mês (${R(T)}).</div>`:"")+`</div>`;
+  if(!PLAN_DB)h+=`<div class="mu" style="margin:8px 2px">O plano está salvo só neste aparelho. Para compartilhar com sua esposa, rode o script meu-mercado-plano.sql no Supabase e recarregue o app.</div>`;
+  return h;
+}
 function toggleCat(k){k=decodeURIComponent(k);openCat[k]=!openCat[k];render()}
 function catList(bc,ci){
   const e=Object.entries(bc).sort((x,y)=>y[1]-x[1]);
@@ -407,7 +459,7 @@ function form(){
   const stores=[...new Set(P.map(x=>x.store).filter(Boolean))];
   return `<h2>${p?"Editar compra":"Nova compra"}</h2>
   <div class="mu" style="margin:-4px 2px 8px">Cadastro manual. A leitura de QR Code fiscal ainda não foi implementada.</div>
-  <div class="card"><b>Importar cupom</b><div class="mu">Cole o texto da página da Fazenda ou o JSON gerado por uma IA a partir da foto do cupom. Os itens só entram se as contas baterem com o total do cupom.</div><div class="row" style="margin-top:8px"><button type="button" onclick="copyPrompt()">Copiar instruções para a IA</button><button type="button" onclick="$('#f-file').click()">Enviar arquivo</button></div><input type="file" id="f-file" accept=".json,.txt,text/plain,application/json" style="display:none" onchange="loadFile(this)"><textarea id="f-paste" rows="4" style="width:100%;margin-top:8px;padding:10px;border:1px solid var(--bd);border-radius:12px;background:var(--bg);color:var(--tx);font:inherit">${esc(PASTE)}</textarea><div class="row" style="margin-top:8px"><button type="button" onclick="pasteClip()">Colar copiado</button><button type="button" class="pri" onclick="importCupom()">Importar itens</button></div></div>
+  <div class="card"><b>Importar cupom</b><div class="mu">Cole o texto da página da Fazenda ou o JSON gerado por uma IA a partir da foto do cupom. Os itens só entram se as contas baterem com o total do cupom.</div><div class="row" style="margin-top:8px"><button type="button" onclick="copyPrompt()">Copiar instruções para a IA</button><button type="button" onclick="$('#f-file').click()">Enviar arquivo</button></div><input type="file" id="f-file" accept=".json,.txt,text/plain,application/json" style="display:none" onchange="loadFile(this)"><textarea id="f-paste" rows="4" onpaste="setTimeout(importCupom,60)" style="width:100%;margin-top:8px;padding:10px;border:1px solid var(--bd);border-radius:12px;background:var(--bg);color:var(--tx);font:inherit">${esc(PASTE)}</textarea><div class="row" style="margin-top:8px"><button type="button" onclick="pasteClip()">Colar e importar</button><button type="button" class="pri" onclick="importCupom()">Importar itens</button></div>${impBox()}</div>
   <div class="card"><div class="row"><div><label>Data</label><input type="date" id="f-date" value="${esc(d.date)}"></div>
   <div><label>Supermercado</label><input id="f-store" list="stores" value="${esc(d.store)}"><datalist id="stores">${stores.map(s=>`<option value="${esc(s)}">`).join("")}</datalist></div></div>
   <label>Chave de acesso da nota, 44 dígitos (opcional; evita duplicidade)</label><input id="f-key" inputmode="numeric" maxlength="44" value="${esc(d.key||"")}"></div>
@@ -486,7 +538,7 @@ function guessCat(n){n=n.toLowerCase();
   ["Doces, besteiras e lanches",/biscoit|bolach|choc|bala |salgad|snack|doce|sorvete|amendoim|bomb|wafer|pipoca|nutry|alfajor|cheetos|fandangos|ruffles|bolinho|gelatina|pa[çc]oca|sucrilhos?|goma de mascar|pirulito|torrada|barra de|trident|chiclete|marshmallow|goiabada|rosquinha|mentos|snickers|crunch|negresco|passatempo|prest[ií]gio|alpino|club social|pettiz|yokitos|fofura|elma chips|marilan|piraqu|nesfit/],
   ["Alimentação",/arroz|feij|macarr|farinha|a[çc][úu]car|[óo]leo|leite|caf[ée]|molho|p[ãa]o|ovo|queijo|parmes|farofa|aveia|cereal|miojo|nissin|azeit|sal |tempero|vinagre|iogurte|petit|manteiga|margarina|maionese|ketchup|massa|wrap|fub[áa]|polvilho|extrato|milho|ervilha|atum|sardinha|shoyu|achocolat|toddy|tapioca|goma de mandioca|polpa/]];
   for(const[c,r]of m)if(r.test(n))return c;return"Outros"}
-function parseCupom(t){
+function parseCupom(t,force){
   t=String(t||"").replace(/\r/g,"");
   if(t.trim()[0]==="{")return parseJSONCupom(t.trim());
   const re=/([^\n(]+?)\s*\(\s*C[óo]digo:\s*([A-Za-z0-9]+)\s*\)[\s\S]*?Qtde\.?\s*:?\s*([\d.,]+)[\s\S]*?UN\s*:?\s*([A-Za-z]+)[\s\S]*?Vl\.?\s*Unit\.?\s*:?\s*(?:R\$)?\s*([\d.,]+)[\s\S]*?Vl\.?\s*Total\s*:?\s*(?:R\$)?\s*([\d.,]+)/gi;
@@ -498,21 +550,38 @@ function parseCupom(t){
   const total=g(/Valor\s*total\s*R?\$?\s*:?\s*([\d.,]+)/i),desc=g(/Descontos?\s*R?\$?\s*:?\s*([\d.,]+)/i)||0;
   const soma=Math.round(it.reduce((s,i)=>s+i._t,0)*100)/100;
   if(total===null)return{error:"Não achei o valor total do cupom para conferir os itens. Copie a página inteira."};
-  if(Math.abs(soma-total)>0.01)return{error:`A soma dos itens lidos (${R(soma)}) não bate com o total do cupom (${R(total)}). Nada foi importado: copie a página inteira e tente de novo.`};
+  const dif=Math.abs(soma-total)>0.01;
+  if(dif&&!force)return{error:`A soma dos itens lidos (${R(soma)}) não bate com o total do cupom (${R(total)}). Pode ter faltado copiar algum item.`,mismatch:true};
   if(desc>0){let rest=desc;it.forEach((i,k)=>{const d=k===it.length-1?rest:Math.round(i._t/soma*desc*100)/100;i.desc=Math.min(d,i._t);rest=Math.round((rest-i.desc)*100)/100})}
   it.forEach(i=>delete i._t);
   const dt=t.match(/(\d{2})\/(\d{2})\/(\d{4})/),ky=t.match(/(?:\d{4}\s?){11}/);
   const loja=(t.split("\n").map(x=>x.trim()).find(x=>x.length>3)||"").slice(0,60);
-  return{items:it,total,desc,store:loja,date:dt?`${dt[3]}-${dt[2]}-${dt[1]}`:"",key:ky&&ky[0].replace(/\D/g,"").length===44?ky[0].replace(/\D/g,""):""};
+  return{items:it,total:dif?soma:total,aviso:dif?`a soma dos itens (${R(soma)}) é diferente do total do cupom (${R(total)}). Confira os itens antes de salvar.`:"",desc,store:loja,date:dt?`${dt[3]}-${dt[2]}-${dt[1]}`:"",key:ky&&ky[0].replace(/\D/g,"").length===44?ky[0].replace(/\D/g,""):""};
 }
-async function pasteClip(){try{$("#f-paste").value=await navigator.clipboard.readText()}catch(e){alert("Não consegui ler a área de transferência. Cole o texto direto no campo.")}}
-function importCupom(){
+let IMP=null;
+function impBox(){
+  if(!IMP)return"";
+  const ok=IMP.tipo==="ok";
+  return `<div style="margin-top:10px;padding:12px;border-radius:12px;background:${ok?"var(--ac2)":"var(--rd2)"};color:${ok?"var(--ac)":"var(--rd)"};font-weight:600">${esc(IMP.texto)}</div>`+(ok?`<button class="pri cta" type="button" onclick="submitForm()">Salvar compra agora</button>`:IMP.forcar?`<button class="cta" type="button" onclick="importCupom(true)">Importar mesmo assim</button>`:"");
+}
+async function pasteClip(){
+  try{
+    const t=await Promise.race([navigator.clipboard.readText(),new Promise((_,rej)=>setTimeout(()=>rej(new Error("tempo")),4000))]);
+    if(!t||!t.trim()){IMP={tipo:"erro",texto:"Não há nada copiado. Copie o texto do cupom e tente de novo."};draft=readForm();render();return}
+    $("#f-paste").value=t;importCupom();
+  }catch(e){
+    PASTE=($("#f-paste")||{}).value||"";draft=readForm();
+    IMP={tipo:"erro",texto:"O navegador não deixou ler o que você copiou. Toque no campo de texto, segure o dedo, escolha Colar, e depois toque em Importar itens."};render();
+  }
+}
+function importCupom(force){
   const txt=$("#f-paste").value,cur=readForm();PASTE=txt;
-  const r=parseCupom(txt);
-  if(r.error){draft=cur;msg=r.error;render();return}
+  if(!txt.trim()){draft=cur;IMP={tipo:"erro",texto:"Cole primeiro o texto do cupom no campo."};render();return}
+  const r=parseCupom(txt,force===true);
+  if(r.error){draft=cur;IMP={tipo:"erro",texto:r.error,forcar:!!r.mismatch};render();scrollTo(0,0);return}
   draft={date:r.date||cur.date,store:cur.store||r.store,key:cur.key||r.key,items:r.items};
-  msg="Importado: "+r.items.length+" itens, total "+R(r.total)+(r.desc?" (desconto de "+R(r.desc)+" dividido entre os itens)":"")+", conferido com o cupom. Revise nomes e categorias e toque em Salvar.";
-  PASTE="";render();
+  IMP={tipo:"ok",texto:"Importado: "+r.items.length+" itens, total "+R(r.total)+(r.desc?" (desconto de "+R(r.desc)+" dividido entre os itens)":"")+"."+(r.aviso?" Atenção: "+r.aviso:" Conferido com o total do cupom.")+" Confira a data, o supermercado e as categorias e salve."};
+  PASTE="";render();scrollTo(0,0);
 }
 const PROMPT_IA=`Leia a(s) foto(s) deste cupom fiscal (NFC-e) e responda SOMENTE com um JSON, sem explicações e sem formatação extra, neste formato:
 {"mercado":"nome do mercado","data":"AAAA-MM-DD","chave":"44 dígitos, se aparecer","valor_total":0.00,"desconto_total":0.00,"itens":[{"nome":"nome do produto","qtd":1,"un":"un ou kg","preco":0.00,"total":0.00,"desconto":0.00}]}
