@@ -527,16 +527,16 @@ function useQR(t){
 }
 let PASTE="",openCat={};
 const nbr=v=>{v=String(v).trim();return parseFloat(v.includes(",")?v.replace(/\./g,"").replace(",","."):v)||0};
-const ABR={CONG:"Congelado",DET:"Detergente",LIQ:"Líquido",MARG:"Margarina",CAFE:"Café",OLEO:"Óleo",SARD:"Sardinha",IOG:"Iogurte",ACHOC:"Achocolatado",ACUC:"Açúcar",QJO:"Queijo",AZ:"Azeitona",VDE:"Verde",ABS:"Absorvente",TEMP:"Tempero",TOALHA:"Toalha",UMED:"Umedecida",CHICL:"Chiclete",ALIM:"Alimento",MAT:"Matinal",COST:"Costelinha",SUIN:"Suína",HIG:"Higiênico",ARR:"Arroz",BEB:"Bebida",FRAL:"Fralda",SALG:"Salgadinho",BISC:"Biscoito",BOL:"Bolinho",MAC:"Macarrão",AMEND:"Amendoim",ALF:"Alfajor",FEIJ:"Feijão",PARM:"Parmesão",RAL:"Ralado",LTE:"Leite",INT:"Integral",COND:"Condicionador",SBT:"Sabonete",CD:"Creme dental",COLG:"Colgate",AZE:"Azeitona",PIZ:"Pizza",COS:"Costela",BOV:"Bovina",FG:"Frango","S/O":"sem osso",AM:"Amaciante",SANIT:"Sanitária",REFRES:"Refrescante",HIDRAT:"Hidratante",CAL:"Calabresa",CHO:"Chocolate",MOR:"Morango",ABAC:"Abacaxi",DES:"Desossada",FAT:"Fatiada",GAL:"Galinha",CAR:"Carioca",ORIG:"Original",BAN:"Banana",DESOD:"Desodorante",SHAMP:"Shampoo"};
+const ABR={POLP:"Polpa",ABA:"Abacaxi",MANG:"Manga",CONG:"Congelado",DET:"Detergente",LIQ:"Líquido",MARG:"Margarina",CAFE:"Café",OLEO:"Óleo",SARD:"Sardinha",IOG:"Iogurte",ACHOC:"Achocolatado",ACUC:"Açúcar",QJO:"Queijo",AZ:"Azeitona",VDE:"Verde",ABS:"Absorvente",TEMP:"Tempero",TOALHA:"Toalha",UMED:"Umedecida",CHICL:"Chiclete",ALIM:"Alimento",MAT:"Matinal",COST:"Costelinha",SUIN:"Suína",HIG:"Higiênico",ARR:"Arroz",BEB:"Bebida",FRAL:"Fralda",SALG:"Salgadinho",BISC:"Biscoito",BOL:"Bolinho",MAC:"Macarrão",AMEND:"Amendoim",ALF:"Alfajor",FEIJ:"Feijão",PARM:"Parmesão",RAL:"Ralado",LTE:"Leite",INT:"Integral",COND:"Condicionador",SBT:"Sabonete",CD:"Creme dental",COLG:"Colgate",AZE:"Azeitona",PIZ:"Pizza",COS:"Costela",BOV:"Bovina",FG:"Frango","S/O":"sem osso",AM:"Amaciante",SANIT:"Sanitária",REFRES:"Refrescante",HIDRAT:"Hidratante",CAL:"Calabresa",CHO:"Chocolate",MOR:"Morango",ABAC:"Abacaxi",DES:"Desossada",FAT:"Fatiada",GAL:"Galinha",CAR:"Carioca",ORIG:"Original",BAN:"Banana",DESOD:"Desodorante",SHAMP:"Shampoo"};
 function expandNome(s){return s.replace(/\./g," ").split(" ").filter(Boolean).map(w=>{const k=w.toUpperCase();return ABR[k]||(w.length>2?w[0].toUpperCase()+w.slice(1).toLowerCase():w.toLowerCase())}).join(" ")}
 function guessCat(n){n=n.toLowerCase();
   const m=[["Carnes e congelados",/carne|frango|bacon|costel|lingui|peito|pizza|congel|hamb|peixe|fil[ée]|bovin|su[ií]n|salsicha|nuggets|lasanha|sobrecoxa|coxa|ac[ée]m|picanha|patinho|alcatra|mortadela|presunto|batata bem|batata congel/],
   ["Hortifruti",/banana|\bma[çc][ãa]s?(?![a-zà-ú])|tomate|cebola|batata|alface|cenoura|laranja|lim[ãa]o|abacate|mam[ãa]o|verdura|fruta fresca|abobrinha|br[óo]colis|couve|melancia/],
   ["Higiene pessoal",/sabonete|shampoo|xampu|condicion|creme dental|gel dental|colgate|desodor|fralda|absorv|always|papel hig|escova|oral|pompom|toalha umed|len[çc]o umed|hastes|cotonete|barbear|protetor|hidratante|talco/],
   ["Limpeza",/detergente|sab[ãa]o|amacia|sanit|desinf|esponja|limpa|multiuso|alvejante|brilh|lava|vassoura|rodo|saco de lixo|inseticida|cloro|[áa]lcool/],
-  ["Bebidas",/refri|suco|[áa]gua|cerveja|vinho|guaran|coca|energ|vigor|maguary|bebida|polpa de fruta|polpa norte|n[ée]ctar|mupy|alimento de soja|isot|gatorade|whisky|vodka|fanta|sprite|pepsi/],
+  ["Bebidas",/refri|suco|[áa]gua|cerveja|vinho|guaran|coca|energ|vigor|maguary|bebida|polpa|n[ée]ctar|mupy|alimento de soja|isot|gatorade|whisky|vodka|fanta|sprite|pepsi/],
   ["Doces, besteiras e lanches",/biscoit|bolach|choc|bala |salgad|snack|doce|sorvete|amendoim|bomb|wafer|pipoca|nutry|alfajor|cheetos|fandangos|ruffles|bolinho|gelatina|pa[çc]oca|sucrilhos?|goma de mascar|pirulito|torrada|barra de|trident|chiclete|marshmallow|goiabada|rosquinha|mentos|snickers|crunch|negresco|passatempo|prest[ií]gio|alpino|club social|pettiz|yokitos|fofura|elma chips|marilan|piraqu|nesfit/],
-  ["Alimentação",/arroz|feij|macarr|farinha|a[çc][úu]car|[óo]leo|leite|caf[ée]|molho|p[ãa]o|ovo|queijo|parmes|farofa|aveia|cereal|miojo|nissin|azeit|sal |tempero|vinagre|iogurte|petit|manteiga|margarina|maionese|ketchup|massa|wrap|fub[áa]|polvilho|extrato|milho|ervilha|atum|sardinha|shoyu|achocolat|toddy|tapioca|goma de mandioca|polpa/]];
+  ["Alimentação",/arroz|feij|macarr|farinha|a[çc][úu]car|[óo]leo|leite|caf[ée]|molho|p[ãa]o|ovo|queijo|parmes|farofa|aveia|cereal|miojo|nissin|azeit|sal |tempero|vinagre|iogurte|petit|manteiga|margarina|maionese|ketchup|massa|wrap|fub[áa]|polvilho|extrato|milho|ervilha|atum|sardinha|shoyu|achocolat|toddy|tapioca|goma de mandioca/]];
   for(const[c,r]of m)if(r.test(n))return c;return"Outros"}
 function parseCupom(t,force){
   t=String(t||"").replace(/\r/g,"");
@@ -547,16 +547,18 @@ function parseCupom(t,force){
     it.push({nome,marca:"",emb:0,un:["kg","g","l","ml"].includes(un)?(un==="l"?"L":un):"un",qtd:nbr(m[3]),preco:nbr(m[5]),desc:0,cat:guessCat(nome),_t:nbr(m[6])})}
   if(!it.length)return{error:"Não encontrei itens nesse texto. Copie a página do cupom inteira, aberta no navegador (não da foto), e tente de novo."};
   const g=r=>{const x=t.match(r);return x?nbr(x[1]):null};
-  const total=g(/Valor\s*total\s*R?\$?\s*:?\s*([\d.,]+)/i),desc=g(/Descontos?\s*R?\$?\s*:?\s*([\d.,]+)/i)||0;
+  const desc=g(/Descontos?\s*R?\$?\s*:?\s*([\d.,]+)/i)||0;
+  let total=g(/Valor\s*total\s*R?\$?\s*:?\s*([\d.,]+)/i),semTotal=false;
+  if(total===null){const pg=g(/Valor\s*a\s*pagar\s*R?\$?\s*:?\s*([\d.,]+)/i);if(pg!==null)total=Math.round((pg+desc)*100)/100}
   const soma=Math.round(it.reduce((s,i)=>s+i._t,0)*100)/100;
-  if(total===null)return{error:"Não achei o valor total do cupom para conferir os itens. Copie a página inteira."};
+  if(total===null){if(!force)return{error:'Não achei o total do cupom ("Valor total" ou "Valor a pagar") para conferir os itens. Se quiser, importe mesmo assim e confira item por item.',mismatch:true};total=soma;semTotal=true}
   const dif=Math.abs(soma-total)>0.01;
   if(dif&&!force)return{error:`A soma dos itens lidos (${R(soma)}) não bate com o total do cupom (${R(total)}). Pode ter faltado copiar algum item.`,mismatch:true};
   if(desc>0){let rest=desc;it.forEach((i,k)=>{const d=k===it.length-1?rest:Math.round(i._t/soma*desc*100)/100;i.desc=Math.min(d,i._t);rest=Math.round((rest-i.desc)*100)/100})}
   it.forEach(i=>delete i._t);
   const dt=t.match(/(\d{2})\/(\d{2})\/(\d{4})/),ky=t.match(/(?:\d{4}\s?){11}/);
   const loja=(t.split("\n").map(x=>x.trim()).find(x=>x.length>3)||"").slice(0,60);
-  return{items:it,total:dif?soma:total,aviso:dif?`a soma dos itens (${R(soma)}) é diferente do total do cupom (${R(total)}). Confira os itens antes de salvar.`:"",desc,store:loja,date:dt?`${dt[3]}-${dt[2]}-${dt[1]}`:"",key:ky&&ky[0].replace(/\D/g,"").length===44?ky[0].replace(/\D/g,""):""};
+  return{items:it,total:dif?soma:total,aviso:semTotal?"o cupom não trouxe o total para conferir os itens. Confira item por item antes de salvar.":dif?`a soma dos itens (${R(soma)}) é diferente do total do cupom (${R(total)}). Confira os itens antes de salvar.`:"",desc,store:loja,date:dt?`${dt[3]}-${dt[2]}-${dt[1]}`:"",key:ky&&ky[0].replace(/\D/g,"").length===44?ky[0].replace(/\D/g,""):""};
 }
 let IMP=null;
 function impBox(){
