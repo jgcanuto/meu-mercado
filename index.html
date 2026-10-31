@@ -85,7 +85,7 @@ const tot=p=>(p.items||[]).reduce((s,i)=>s+net(i),0);
 const ic=n=>`<svg class="i"><use href="#i-${n}"/></svg>`;
 const pct=x=>Math.abs(x).toFixed(1).replace(".",",")+"%";
 const SB_URL="https://fmovgftzgewxhwidnuhn.supabase.co",SB_KEY="sb_publishable_E35tEHVnObfFeegG-3qwiQ_SIQYsz8B";
-let P=[],ed=null,view="home",draft=null,msg="",open={},UID=null,HID=null,HH=null,NM={},sb=null;
+let P=[],ed=null,view="home",draft=null,msg="",openP={},UID=null,HID=null,HH=null,NM={},sb=null;
 const who=p=>p.por?(p.por===UID?"Você":(NM[p.por]&&NM[p.por].name)||"Outra pessoa"):"";
 const banner=()=>"";
 const erro=m=>/Invalid login/i.test(m)?"E-mail ou senha incorretos.":/already registered/i.test(m)?"Este e-mail já tem conta. Toque em Entrar.":m;
@@ -169,7 +169,7 @@ let IGN={};try{IGN=JSON.parse(localStorage.getItem("meumercado_ignorados")||"{}"
 function ignorar(k){IGN[decodeURIComponent(k)]=1;try{localStorage.setItem("meumercado_ignorados",JSON.stringify(IGN))}catch(e){}render()}
 function esquecidos(){
   const m={},hoje=new Date();hoje.setHours(0,0,0,0);
-  P.forEach(p=>(p.items||[]).forEach(i=>{const k=[i.nome,i.marca,i.emb,i.un].map(x=>String(x||"").toLowerCase().trim()).join("|");const o=m[k]=m[k]||{k,i,d:new Set()};o.i=i;if(p.date)o.d.add(p.date)}));
+  P.forEach(p=>(p.items||[]).forEach(i=>{const k=keyOf(i);const o=m[k]=m[k]||{k,i,d:new Set()};o.i=i;if(p.date)o.d.add(p.date)}));
   const out=[];
   Object.values(m).forEach(o=>{
     const ds=[...o.d].sort();if(ds.length<2)return;
@@ -195,7 +195,26 @@ function metaHtml(ta){
   const p=ta/META*100;
   return `<div style="margin-top:10px"><div class="fl mu"><span>Meta ${R(META)}</span><span>${p.toFixed(0)}%${ta>META?" · passou "+R(ta-META):" · restam "+R(META-ta)}</span></div><div class="bar" style="background:rgba(255,255,255,.25)"><i style="width:${Math.min(100,p)}%;background:${ta>META?"#ffb4b4":"#fff"}"></i></div><button style="padding:4px 10px;font-size:.72rem" onclick="defMeta()">Alterar meta</button></div>`;
 }
-const keyOf=i=>[i.nome,i.marca,i.emb,i.un].map(x=>String(x||"").toLowerCase().trim()).join("|");
+const STOPW=new Set(["de","da","do","das","dos","com","c","e","em","un","und","pct","kg","ct","fc","cx","pt"]);
+const BRAL={hugg:"huggies",huggies:"huggies",ype:"ype",nestle:"nestle",yoki:"yoki",dori:"dori",seara:"seara",kelloggs:"kelloggs",uniao:"uniao",colg:"colgate",colgate:"colgate",lux:"lux",seda:"seda",vig:"vigor",vigor:"vigor",maguary:"maguary",norte:"norte",elma:"elma",baruel:"baruel",selec:"selec",always:"always",bulnez:"bulnez",mupy:"mupy",tial:"tial",italac:"italac",piracanjuba:"piracanjuba",itambe:"itambe",camil:"camil",liza:"liza",aurora:"aurora",ypê:"ype",bauducco:"bauducco",marilan:"marilan",piraque:"piraque",toddy:"toddy",sakura:"sakura",qualy:"qualy",qually:"qualy",antarctica:"antarctica",antarc:"antarctica",rezende:"rezende",itab:"itab",brilhante:"brilhante",pompom:"pompom",oldspice:"oldspice"};
+function canonParts(i){
+  const base=norm(i.nome).replace(/(\d),(\d)/g,"$1.$2").replace(/[^a-z0-9. ]/g,m=>m==="/"?"":" ").split(/\s+/).filter(Boolean);
+  let brand="";const out=[];
+  base.forEach(t=>{
+    const u=ABR[t.toUpperCase()];
+    (u?norm(u).split(/\s+/):[t]).forEach(tt=>{
+      tt=tt.replace(/[^a-z0-9.]/g,"");if(!tt)return;
+      if(BRAL[tt]&&!brand){brand=BRAL[tt];return}
+      if(STOPW.has(tt)||(tt.length<2&&!/\d/.test(tt)))return;
+      out.push(tt)});
+  });
+  const mk0=norm(i.marca).replace(/[^a-z0-9]/g,"");
+  if(!brand&&mk0)brand=BRAL[mk0]||mk0;
+  const emb=Number(i.emb)||0,un=norm(i.un);
+  if(emb)out.push(String(emb)+un);else if(un&&un!=="un")out.push("peso_"+un);
+  return{tokens:[...new Set(out.filter(t=>t!==brand&&t!==mk0))].sort(),brand};
+}
+const keyOf=i=>{const p=canonParts(i);return p.tokens.join(" ")+"|"+p.brand};
 function habExtras(cur){
   const meses=[];let m=cur;for(let k=0;k<3;k++){m=prevMonth(m);meses.push(m)}
   const nomes={},cnt={};
@@ -213,13 +232,33 @@ function habCard(cur){
   return `<h2>Habituais e extras</h2><div class="card"><div class="mu">Habitual: item comprado em pelo menos 2 dos 3 meses anteriores a ${mname(cur)}.</div>${bl(h.falt,"Habituais ainda não comprados neste mês")}${bl(h.extra,"Extras, fora do habitual")}</div>`;
 }
 function busca(v){BUSCA=v;$("#lst").innerHTML=view==="list"?listBody():prodsBody()}
+function filtroItem(q,i){q=q.eq("household_id",HID).eq("name",i.nome).eq("unit",i.un);q=i.marca?q.eq("brand",i.marca):q.is("brand",null);return i.emb?q.eq("pack_size",i.emb):q.is("pack_size",null)}
+function variantes(x){const m={};x.h.forEach(y=>{const i=y.i;m[[i.nome,i.marca,i.emb,i.un].join("|")]=i});return Object.values(m)}
 async function recat(k,c){
-  k=decodeURIComponent(k);const x=products().find(y=>y.k===k);if(!x)return;const i=x.i;
-  let q=sb.from("purchase_items").update({category:c}).eq("household_id",HID).eq("name",i.nome).eq("unit",i.un);
-  q=i.marca?q.eq("brand",i.marca):q.is("brand",null);
-  q=i.emb?q.eq("pack_size",i.emb):q.is("pack_size",null);
-  const{error}=await q;if(error){alert("Não foi possível mudar a categoria: "+error.message);return}
+  k=decodeURIComponent(k);const x=products().find(y=>y.k===k);if(!x)return;
+  for(const v of variantes(x)){const{error}=await filtroItem(sb.from("purchase_items").update({category:c}),v);if(error){alert("Não foi possível mudar a categoria: "+error.message);return}}
   await load();
+}
+async function juntar(k,k2){
+  if(!k2)return;k=decodeURIComponent(k);k2=decodeURIComponent(k2);
+  const L=products(),a=L.find(y=>y.k===k),b=L.find(y=>y.k===k2);if(!a||!b)return;
+  if(!confirm(`Juntar "${a.i.nome}" em "${b.i.nome}"?\n\nTodas as compras de "${a.i.nome}" passam a usar o nome, a marca e a embalagem de "${b.i.nome}". O app não desfaz isso sozinho.`))return;
+  for(const v of variantes(a)){const{error}=await filtroItem(sb.from("purchase_items").update({name:b.i.nome,brand:b.i.marca||null,pack_size:b.i.emb||null,unit:b.i.un}),v);if(error){alert("Não foi possível juntar: "+error.message);return}}
+  await load();
+}
+function similares(x,ALL){
+  const a=canonParts(x.i),A=new Set(a.tokens);
+  return ALL.filter(y=>y.k!==x.k).map(y=>{
+    const b=canonParts(y.i),B=new Set(b.tokens);
+    if(a.brand&&b.brand&&a.brand!==b.brand)return null;
+    const na=a.tokens.filter(t=>/\d/.test(t)),nb=b.tokens.filter(t=>/\d/.test(t));
+    if(na.length&&nb.length&&!na.some(t=>nb.includes(t)))return null;
+    const inter=a.tokens.filter(t=>B.has(t)).length,sc=inter/Math.max(1,Math.min(A.size,B.size));
+    return inter>=1&&sc>=0.6?{y,sc}:null}).filter(Boolean).sort((p,q)=>q.sc-p.sc).slice(0,3).map(o=>o.y);
+}
+function simHtml(x,ALL){
+  const L=similares(x,ALL);if(!L.length)return"";
+  return `<div class="mu" style="margin-top:8px">Parecidos (confirme antes de juntar):</div>`+L.map(y=>`<button type="button" style="margin:4px 4px 0 0;padding:6px 10px;font-size:.78rem" onclick="juntar('${encodeURIComponent(x.k)}','${encodeURIComponent(y.k)}')">Juntar com ${esc(y.i.nome)}${y.i.marca?" · "+esc(y.i.marca):""}</button>`).join("");
 }
 let PH=[];
 function fotoView(){
@@ -304,15 +343,6 @@ function blocoSt(h){
   if(e.length<2)return"";
   return `<div style="margin-top:10px"><b>Último preço por supermercado</b></div>`+e.sort((a,b)=>a[1].preco-b[1].preco).map(([s,y],n)=>`<div class="tr fl"><span>${esc(s)} <span class="mu">${D(y.date)}</span></span><b style="${n===0?"color:var(--ac)":""}">${R(y.preco)}</b></div>`).join("")+`<div class="mu">São os preços da última compra em cada lugar, não os de hoje.</div>`;
 }
-async function juntar(k,k2){
-  if(!k2)return;k=decodeURIComponent(k);k2=decodeURIComponent(k2);
-  const L=products(),a=L.find(y=>y.k===k),b=L.find(y=>y.k===k2);if(!a||!b)return;
-  if(!confirm(`Juntar "${a.i.nome}" em "${b.i.nome}"?\n\nTodas as compras de "${a.i.nome}" passam a usar o nome, a marca e a embalagem de "${b.i.nome}". O app não desfaz isso sozinho.`))return;
-  let q=sb.from("purchase_items").update({name:b.i.nome,brand:b.i.marca||null,pack_size:b.i.emb||null,unit:b.i.un}).eq("household_id",HID).eq("name",a.i.nome).eq("unit",a.i.un);
-  q=a.i.marca?q.eq("brand",a.i.marca):q.is("brand",null);q=a.i.emb?q.eq("pack_size",a.i.emb):q.is("pack_size",null);
-  const{error}=await q;if(error){alert("Não foi possível juntar: "+error.message);return}
-  await load();
-}
 let PLAN={total:0,cats:{}},PLAN_DB=true;
 async function loadPlan(){
   try{
@@ -364,6 +394,7 @@ function planoView(){
   if(!PLAN_DB)h+=`<div class="mu" style="margin:8px 2px">O plano está salvo só neste aparelho. Para compartilhar com sua esposa, rode o script meu-mercado-plano.sql no Supabase e recarregue o app.</div>`;
   return h;
 }
+function togP(k){k=decodeURIComponent(k);openP[k]=!openP[k];render()}
 function toggleCat(k){k=decodeURIComponent(k);openCat[k]=!openCat[k];render()}
 function catList(bc,ci){
   const e=Object.entries(bc).sort((x,y)=>y[1]-x[1]);
@@ -415,7 +446,7 @@ function unitPrice(i){
 function products(){
   const m={};
   P.forEach(p=>(p.items||[]).forEach(i=>{
-    const k=[i.nome,i.marca,i.emb,i.un].map(x=>String(x||"").toLowerCase().trim()).join("|");
+    const k=keyOf(i);
     (m[k]=m[k]||{k,i,h:[]}).h.push({date:p.date,store:p.store,preco:i.preco,qtd:i.qtd,i});
   }));
   return Object.values(m).map(x=>{x.h.sort((a,b)=>(a.date||"").localeCompare(b.date||""));return x}).sort((a,b)=>a.i.nome.localeCompare(b.i.nome,"pt-BR"));
@@ -434,12 +465,12 @@ function prodsBody(){
     const h=x.h,last=h[h.length-1],pv=h[h.length-2],v=h.map(y=>y.preco),mn=Math.min(...v),mx=Math.max(...v);
     let chip=`<span class="chip" style="background:var(--bg);color:var(--mu)">1ª compra</span>`;
     if(pv&&pv.preco>0){const d=last.preco-pv.preco;chip=d===0?`<span class="chip" style="background:var(--bg);color:var(--mu)">Sem variação</span>`:`<span class="chip ${d>0?"up":""}">${ic(d>0?"up":"down")}${R(Math.abs(d))} · ${pct(d/pv.preco*100)}</span>`}
-    const up=unitPrice(last.i),op=open[x.k];
+    const up=unitPrice(last.i),op=openP[x.k];
     const sub=[x.i.marca,x.i.emb?(String(x.i.emb).replace(".",",")+" "+x.i.un):""].filter(Boolean).join(" · ");
-    return `<div class="card clk" onclick="open[${JSON.stringify(x.k).replace(/"/g,"&quot;")}]=!open[${JSON.stringify(x.k).replace(/"/g,"&quot;")}];render()">
+    return `<div class="card clk" onclick="togP('${encodeURIComponent(x.k)}')">
     <div class="fl"><div><b>${esc(x.i.nome)}</b><div class="mu">${esc(sub)||"&nbsp;"}</div></div><div style="text-align:right"><b>${R(last.preco)}</b><div class="mu">${up?R(up.v)+up.u:""}</div></div></div>
     <div class="fl" style="margin-top:8px"><div>${chip}</div><div class="mu">mín ${R(mn)} · máx ${R(mx)}</div></div>
-    ${op?`<div style="margin-top:10px" onclick="event.stopPropagation()"><label>Categoria (vale para todas as compras deste produto)</label><select onchange="recat('${encodeURIComponent(x.k)}',this.value)">${CATS.map(c=>`<option ${c===(last.i.cat||"Outros")?"selected":""}>${c}</option>`).join("")}</select><label>Juntar com outro produto (para comparar preços)</label><select onchange="juntar('${encodeURIComponent(x.k)}',this.value)"><option value="">Escolher produto…</option>${ALL.filter(y=>y.k!==x.k).map(y=>`<option value="${encodeURIComponent(y.k)}">${esc(y.i.nome)}${y.i.marca?" · "+esc(y.i.marca):""}</option>`).join("")}</select></div>${blocoSt(h)}<div style="margin-top:10px">${spark(h)}</div>${[...h].reverse().map(y=>`<div class="tr fl"><span>${D(y.date)} · ${esc(y.store||"")}</span><b>${R(y.preco)}</b></div>`).join("")}`:""}</div>`}).join("");
+    ${op?`<div style="margin-top:10px" onclick="event.stopPropagation()"><label>Categoria (vale para todas as compras deste produto)</label><select onchange="recat('${encodeURIComponent(x.k)}',this.value)">${CATS.map(c=>`<option ${c===(last.i.cat||"Outros")?"selected":""}>${c}</option>`).join("")}</select><label>Juntar com outro produto (para comparar preços)</label><select onchange="juntar('${encodeURIComponent(x.k)}',this.value)"><option value="">Escolher produto…</option>${ALL.filter(y=>y.k!==x.k).map(y=>`<option value="${encodeURIComponent(y.k)}">${esc(y.i.nome)}${y.i.marca?" · "+esc(y.i.marca):""}</option>`).join("")}</select>${simHtml(x,ALL)}</div>${blocoSt(h)}<div style="margin-top:10px">${spark(h)}</div>${[...h].reverse().map(y=>`<div class="tr fl"><span>${D(y.date)} · ${esc(y.store||"")}</span><b>${R(y.preco)}</b></div>`).join("")}`:""}</div>`}).join("");
 }
 function itemRow(i){
   i=i||{nome:"",marca:"",emb:"",un:"un",qtd:1,preco:"",desc:"",cat:"Alimentação"};
